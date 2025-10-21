@@ -1,9 +1,9 @@
 /**
  * @file DataTable.jsx
- * @description Enhanced data table with better filtering, search, and UX
+ * @description Enhanced data table with inline editing, delete, KiCad integration, and management features
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 export default function DataTable({ 
     components, 
@@ -12,10 +12,20 @@ export default function DataTable({
     setSelectedProject, 
     searchTerm, 
     setSearchTerm, 
-    findAlternatives, 
+    findAlternatives,
+    editComponent,
+    deleteComponent,
     clearLibrary, 
-    exportLibrary 
+    saveLibraryToFile,
+    importLibrary,
+    kicadSchematics,
+    generateKiCadComponent,
+    matchWithKiCad
 }) {
+    const [editingId, setEditingId] = useState(null);
+    const [editedData, setEditedData] = useState({});
+    const [copiedId, setCopiedId] = useState(null);
+
     const projectNames = useMemo(() => 
         [...new Set(components.map(c => c.ProjectName))].sort(),
         [components]
@@ -45,6 +55,34 @@ export default function DataTable({
         filtered: filteredComponents.length,
         projects: projectNames.length
     }), [components.length, filteredComponents.length, projectNames.length]);
+
+    const handleEdit = (component) => {
+        setEditingId(component.id);
+        setEditedData({ ...component });
+    };
+
+    const handleSave = (componentId) => {
+        editComponent(componentId, editedData);
+        setEditingId(null);
+        setEditedData({});
+    };
+
+    const handleCancel = () => {
+        setEditingId(null);
+        setEditedData({});
+    };
+
+    const handleFieldChange = (field, value) => {
+        setEditedData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleImport = async (event) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            await importLibrary(file);
+            event.target.value = '';
+        }
+    };
 
     return (
         <div className="bg-gray-800 rounded-xl shadow-lg p-6 ring-1 ring-keylife-accent/20">
@@ -154,31 +192,83 @@ export default function DataTable({
                                 </th>
                             ))}
                             <th scope="col" className="px-6 py-3 text-center whitespace-nowrap">
-                                AI Actions
+                                Actions
                             </th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredComponents.map((component, index) => (
+                        {filteredComponents.map((component) => (
                             <tr 
-                                key={component.id || index} 
+                                key={component.id} 
                                 className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors"
                             >
                                 {headers.map((header) => (
                                     <td key={header} className="px-6 py-4 whitespace-nowrap">
-                                        {component[header] || '-'}
+                                        {editingId === component.id ? (
+                                            <input
+                                                type="text"
+                                                value={editedData[header] || ''}
+                                                onChange={(e) => handleFieldChange(header, e.target.value)}
+                                                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-keylife-accent"
+                                            />
+                                        ) : (
+                                            component[header] || '-'
+                                        )}
                                     </td>
                                 ))}
-                                <td className="px-6 py-4 text-center">
-                                    <button 
-                                        onClick={() => findAlternatives(component)} 
-                                        className="bg-keylife-accent hover:bg-keylife-accent/80 text-white font-medium py-1.5 px-4 rounded-lg text-sm transition duration-200 inline-flex items-center justify-center gap-2"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                        </svg>
-                                        Find Alternatives
-                                    </button>
+                                <td className="px-6 py-4">
+                                    {editingId === component.id ? (
+                                        <div className="flex gap-2 justify-center">
+                                            <button
+                                                onClick={() => handleSave(component.id)}
+                                                className="bg-green-600 hover:bg-green-500 text-white font-medium py-1 px-3 rounded-lg text-sm transition duration-200 inline-flex items-center gap-1"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                Save
+                                            </button>
+                                            <button
+                                                onClick={handleCancel}
+                                                className="bg-gray-600 hover:bg-gray-500 text-white font-medium py-1 px-3 rounded-lg text-sm transition duration-200"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2 justify-center flex-wrap">
+                                            <button 
+                                                onClick={() => findAlternatives(component)} 
+                                                className="bg-keylife-accent hover:bg-keylife-accent/80 text-white font-medium py-1 px-2 rounded-lg text-xs transition duration-200 inline-flex items-center gap-1"
+                                                title="Find alternatives"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                                AI
+                                            </button>
+                                            <button
+                                                onClick={() => handleEdit(component)}
+                                                className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-1 px-2 rounded-lg text-xs transition duration-200 inline-flex items-center gap-1"
+                                                title="Edit component"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => deleteComponent(component.id)}
+                                                className="bg-red-600 hover:bg-red-500 text-white font-medium py-1 px-2 rounded-lg text-xs transition duration-200 inline-flex items-center gap-1"
+                                                title="Delete component"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                                Del
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -197,25 +287,44 @@ export default function DataTable({
             )}
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row justify-end items-center gap-3 mt-6 pt-6 border-t border-gray-700">
-                <button 
-                    onClick={exportLibrary} 
-                    className="w-full sm:w-auto bg-keylife-accent hover:bg-keylife-accent/80 text-white font-medium py-2 px-4 rounded-lg transition duration-200 inline-flex items-center justify-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Export Library
-                </button>
-                <button 
-                    onClick={clearLibrary} 
-                    className="w-full sm:w-auto bg-red-700 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 inline-flex items-center justify-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Clear Library
-                </button>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-6 pt-6 border-t border-gray-700">
+                <div className="flex gap-3">
+                    <label className="cursor-pointer">
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleImport}
+                            className="hidden"
+                        />
+                        <span className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Import Library
+                        </span>
+                    </label>
+                </div>
+                
+                <div className="flex gap-3">
+                    <button 
+                        onClick={saveLibraryToFile} 
+                        className="bg-keylife-accent hover:bg-keylife-accent/80 text-white font-medium py-2 px-4 rounded-lg transition duration-200 inline-flex items-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        Save Library
+                    </button>
+                    <button 
+                        onClick={clearLibrary} 
+                        className="bg-red-700 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 inline-flex items-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Clear All
+                    </button>
+                </div>
             </div>
         </div>
     );
