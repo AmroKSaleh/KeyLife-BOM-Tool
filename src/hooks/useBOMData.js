@@ -364,6 +364,147 @@ export const useBOMData = () => {
         }
     }, [components, headers]);
 
+    /**
+     * Edit a single component
+     */
+    const editComponent = useCallback((componentId, updatedData) => {
+        setComponents(prev => 
+            prev.map(comp => 
+                comp.id === componentId ? { ...comp, ...updatedData } : comp
+            )
+        );
+        setError('✓ Component updated successfully');
+        setTimeout(() => setError(''), 3000);
+    }, []);
+
+    /**
+     * Delete a single component
+     */
+    const deleteComponent = useCallback((componentId) => {
+        setComponents(prev => prev.filter(comp => comp.id !== componentId));
+        setError('✓ Component deleted successfully');
+        setTimeout(() => setError(''), 3000);
+    }, []);
+
+    /**
+     * Delete entire project (all components with same ProjectName)
+     */
+    const deleteProject = useCallback((projectName) => {
+        const count = components.filter(c => c.ProjectName === projectName).length;
+        const confirmed = window.confirm(
+            `Delete all ${count} components from project "${projectName}"? This cannot be undone.`
+        );
+        
+        if (!confirmed) return;
+
+        setComponents(prev => prev.filter(c => c.ProjectName !== projectName));
+        setError(`✓ Project "${projectName}" deleted (${count} components removed)`);
+        setTimeout(() => setError(''), 5000);
+    }, [components]);
+
+    /**
+     * Save library to local file system
+     */
+    const saveLibraryToFile = useCallback(async () => {
+        if (components.length === 0) {
+            setError('No data to save.');
+            return;
+        }
+
+        try {
+            const exportData = {
+                version: CURRENT_VERSION,
+                savedAt: new Date().toISOString(),
+                projectCount: new Set(components.map(c => c.ProjectName)).size,
+                componentCount: components.length,
+                headers,
+                components
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            
+            // Use File System Access API if available (modern browsers)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: `keylife_bom_library_${new Date().toISOString().split('T')[0]}.json`,
+                        types: [{
+                            description: 'JSON Files',
+                            accept: { 'application/json': ['.json'] }
+                        }]
+                    });
+                    
+                    const writable = await handle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    
+                    setError('✓ Library saved successfully to your chosen location');
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        throw err;
+                    }
+                    return; // User cancelled
+                }
+            } else {
+                // Fallback to download
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `keylife_bom_library_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                setError('✓ Library downloaded to your Downloads folder');
+            }
+            
+            setTimeout(() => setError(''), 5000);
+        } catch (err) {
+            console.error('Save error:', err);
+            setError('Failed to save library: ' + err.message);
+        }
+    }, [components, headers]);
+
+    /**
+     * Import library from file
+     */
+    const importLibrary = useCallback(async (file) => {
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (!data.components || !Array.isArray(data.components)) {
+                throw new Error('Invalid library file format');
+            }
+
+            const confirmed = window.confirm(
+                `Import ${data.components.length} components from file?\n\nThis will MERGE with existing data. Continue?`
+            );
+            
+            if (!confirmed) return;
+
+            // Merge headers
+            if (data.headers && Array.isArray(data.headers)) {
+                setHeaders(prev => {
+                    const combined = new Set(['ProjectName', ...prev, ...data.headers]);
+                    combined.delete('ProjectName');
+                    return ['ProjectName', ...Array.from(combined)];
+                });
+            }
+
+            // Add imported components
+            setComponents(prev => [...prev, ...data.components]);
+            
+            setError(`✓ Successfully imported ${data.components.length} components`);
+            setTimeout(() => setError(''), 5000);
+        } catch (err) {
+            console.error('Import error:', err);
+            setError('Failed to import library: ' + err.message);
+        }
+    }, []);
+
     return {
         projectName,
         setProjectName,
@@ -375,6 +516,11 @@ export const useBOMData = () => {
         isProcessing,
         handleFileUpload,
         clearLibrary,
-        exportLibrary
+        exportLibrary,
+        editComponent,
+        deleteComponent,
+        deleteProject,
+        saveLibraryToFile,
+        importLibrary
     };
 };

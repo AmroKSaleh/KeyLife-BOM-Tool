@@ -4,6 +4,7 @@ import { useGeminiAI } from './hooks/useGeminiAI.js';
 import AiModal from './components/AiModal.jsx';
 import SetupSection from './components/SetupSection.jsx';
 import DataTable from './components/DataTable.jsx';
+import ProjectManager from './components/ProjectManager.jsx';
 
 export default function App() {
     const { 
@@ -17,7 +18,12 @@ export default function App() {
         isProcessing,
         handleFileUpload,
         clearLibrary,
-        exportLibrary
+        exportLibrary,
+        editComponent,
+        deleteComponent,
+        deleteProject,
+        saveLibraryToFile,
+        importLibrary
     } = useBOMData();
     
     const { 
@@ -145,8 +151,8 @@ export default function App() {
                 </main>
 
                 <footer className="mt-12 text-center text-gray-500 text-sm border-t border-gray-800 pt-6">
-                    <p>© 2025 KeyLife Electronics - R&D Internal Tool</p>
-                    <p className="mt-1">Developed by Amro K Saleh</p>
+                    <p>© 2024 KeyLife Electronics - R&D Internal Tool</p>
+                    <p className="mt-1">Developed by Amro K. Saleh</p>
                 </footer>
             </div>
             
