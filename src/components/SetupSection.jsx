@@ -6,7 +6,7 @@
 export default function SetupSection({ projectName, setProjectName, fileName, handleFileUpload, isProcessing }) {
     return (
         <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 ring-1 ring-keylife-accent/20">
-            <div className="grid md:grid-cols-2 gap-6 items-end">
+            <div className="grid md:grid-cols-2 gap-6 items-start">
                 {/* Project Name Input */}
                 <div>
                     <label 
