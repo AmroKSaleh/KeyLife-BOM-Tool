@@ -1,0 +1,49 @@
+{
+  "name": "bom-consolidation-tool",
+  "version": "0.1.0-beta",
+  "description": "BOM Consolidation Tool for Component Library Management (KeyLife Electronics R&D Internal Tool)",
+  "type": "module",
+  "main": "server.js",
+  "author": "Amro K Saleh, KeyLife Electronics R&D",
+  "license": "ISC",
+  "keywords": [
+    "bom",
+    "electronics",
+    "component-library",
+    "supply-chain",
+    "keylife"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server.js",
+    "clean": "rm -rf dist node_modules",
+    "reinstall": "npm run clean && npm install",
+    "lint": "eslint src --ext .js,.jsx",
+    "format": "prettier --write \"src/**/*.{js,jsx,json,css,md}\"",
+    "check": "npm run lint && npm run format"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^7.1.11"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/bom-consolidation-tool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/bom-consolidation-tool/issues"
+  },
+  "homepage": "https://github.com/yourusername/bom-consolidation-tool#readme"
+}
