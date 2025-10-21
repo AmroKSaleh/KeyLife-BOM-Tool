@@ -117,17 +117,28 @@ export default function App() {
                     )}
 
                     {components.length > 0 && (
-                        <DataTable
-                            components={components}
-                            headers={headers}
-                            selectedProject={selectedProject}
-                            setSelectedProject={setSelectedProject}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            findAlternatives={findAlternatives}
-                            clearLibrary={clearLibrary}
-                            exportLibrary={exportLibrary}
-                        />
+                        <>
+                            <ProjectManager
+                                components={components}
+                                onDeleteProject={deleteProject}
+                                onFilterProject={(projectName) => setSelectedProject(projectName)}
+                            />
+                            
+                            <DataTable
+                                components={components}
+                                headers={headers}
+                                selectedProject={selectedProject}
+                                setSelectedProject={setSelectedProject}
+                                searchTerm={searchTerm}
+                                setSearchTerm={setSearchTerm}
+                                findAlternatives={findAlternatives}
+                                editComponent={editComponent}
+                                deleteComponent={deleteComponent}
+                                clearLibrary={clearLibrary}
+                                saveLibraryToFile={saveLibraryToFile}
+                                importLibrary={importLibrary}
+                            />
+                        </>
                     )}
 
                     {components.length === 0 && !isProcessing && (
