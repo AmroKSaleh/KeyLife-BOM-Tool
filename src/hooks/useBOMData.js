@@ -48,16 +48,36 @@ export const useBOMData = () => {
             const savedComponents = localStorage.getItem(STORAGE_KEYS.COMPONENTS);
             const savedHeaders = localStorage.getItem(STORAGE_KEYS.HEADERS);
 
-            if (savedProjectName) {
-                setProjectName(JSON.parse(savedProjectName));
-            }
+            // Parse components
+            let parsedComponents = [];
             if (savedComponents) {
-                const parsed = JSON.parse(savedComponents);
-                setComponents(Array.isArray(parsed) ? parsed : []);
+                parsedComponents = JSON.parse(savedComponents);
+                if (!Array.isArray(parsedComponents)) {
+                    parsedComponents = [];
+                }
             }
+
+            // Parse headers
+            let parsedHeaders = [];
             if (savedHeaders) {
-                const parsed = JSON.parse(savedHeaders);
-                setHeaders(Array.isArray(parsed) ? parsed : []);
+                parsedHeaders = JSON.parse(savedHeaders);
+                if (!Array.isArray(parsedHeaders)) {
+                    parsedHeaders = [];
+                }
+            }
+
+            // Only load data if there are actual components
+            if (parsedComponents.length > 0) {
+                setComponents(parsedComponents);
+                setHeaders(parsedHeaders);
+                
+                // Only restore project name if components exist
+                if (savedProjectName) {
+                    setProjectName(JSON.parse(savedProjectName));
+                }
+            } else {
+                // If no components, clear everything to prevent orphaned data
+                clearLocalStorage();
             }
         } catch (err) {
             console.error('Failed to load from localStorage:', err);
@@ -71,16 +91,24 @@ export const useBOMData = () => {
      */
     useEffect(() => {
         try {
-            if (projectName) {
-                localStorage.setItem(STORAGE_KEYS.PROJECT_NAME, JSON.stringify(projectName));
-            }
+            // Only save if there are components
             if (components.length > 0) {
                 localStorage.setItem(STORAGE_KEYS.COMPONENTS, JSON.stringify(components));
+                localStorage.setItem(STORAGE_KEYS.VERSION, CURRENT_VERSION);
+                
+                // Save headers if they exist
+                if (headers.length > 0) {
+                    localStorage.setItem(STORAGE_KEYS.HEADERS, JSON.stringify(headers));
+                }
+                
+                // Save project name if it exists
+                if (projectName) {
+                    localStorage.setItem(STORAGE_KEYS.PROJECT_NAME, JSON.stringify(projectName));
+                }
+            } else {
+                // If no components, clear storage to prevent orphaned data
+                clearLocalStorage();
             }
-            if (headers.length > 0) {
-                localStorage.setItem(STORAGE_KEYS.HEADERS, JSON.stringify(headers));
-            }
-            localStorage.setItem(STORAGE_KEYS.VERSION, CURRENT_VERSION);
         } catch (err) {
             console.error('Failed to save to localStorage:', err);
             if (err.name === 'QuotaExceededError') {
@@ -305,15 +333,23 @@ export const useBOMData = () => {
             if (!confirmed) return;
         }
 
+        // Clear all state
         setProjectName('');
         setComponents([]);
         setHeaders([]);
         setFileName('');
         setError('');
+        
+        // Clear localStorage
         clearLocalStorage();
 
+        // Clear file input
         const fileInput = document.getElementById('csv-upload');
         if (fileInput) fileInput.value = '';
+        
+        // Show success message
+        setError('✓ Library cleared successfully');
+        setTimeout(() => setError(''), 3000);
     }, [components.length]);
 
     /**
@@ -381,10 +417,28 @@ export const useBOMData = () => {
      * Delete a single component
      */
     const deleteComponent = useCallback((componentId) => {
-        setComponents(prev => prev.filter(comp => comp.id !== componentId));
+        const component = components.find(c => c.id === componentId);
+        if (!component) return;
+
+        const confirmed = window.confirm(
+            `Delete component "${component.Designator || component.Reference || 'Unknown'}"?`
+        );
+        
+        if (!confirmed) return;
+
+        const remainingComponents = components.filter(comp => comp.id !== componentId);
+        setComponents(remainingComponents);
+        
+        // If no components left, clear everything
+        if (remainingComponents.length === 0) {
+            setHeaders([]);
+            setProjectName('');
+            clearLocalStorage();
+        }
+        
         setError('✓ Component deleted successfully');
         setTimeout(() => setError(''), 3000);
-    }, []);
+    }, [components]);
 
     /**
      * Delete entire project (all components with same ProjectName)
@@ -397,7 +451,27 @@ export const useBOMData = () => {
         
         if (!confirmed) return;
 
-        setComponents(prev => prev.filter(c => c.ProjectName !== projectName));
+        const remainingComponents = components.filter(c => c.ProjectName !== projectName);
+        setComponents(remainingComponents);
+        
+        // If no components left, clear everything
+        if (remainingComponents.length === 0) {
+            setHeaders([]);
+            setProjectName('');
+            clearLocalStorage();
+        } else {
+            // Rebuild headers from remaining components
+            const remainingHeaders = new Set(['ProjectName']);
+            remainingComponents.forEach(comp => {
+                Object.keys(comp).forEach(key => {
+                    if (key !== 'id' && key !== 'ProjectName') {
+                        remainingHeaders.add(key);
+                    }
+                });
+            });
+            setHeaders(['ProjectName', ...Array.from(remainingHeaders).filter(h => h !== 'ProjectName')]);
+        }
+        
         setError(`✓ Project "${projectName}" deleted (${count} components removed)`);
         setTimeout(() => setError(''), 5000);
     }, [components]);
