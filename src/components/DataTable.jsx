@@ -23,7 +23,8 @@ export default function DataTable({
     kicadSchematics,
     matchWithKiCad,
     generateKiCadComponent,
-    designatorConfig
+    designatorConfig,
+    onCopyKiCadSymbol
 }) {
     const [editingId, setEditingId] = useState(null);
     const [editedData, setEditedData] = useState({});
@@ -320,30 +321,40 @@ export default function DataTable({
                                             {/* KiCad Copy Button - Only show if schematic exists for this project */}
                                             {kicadSchematics[component.ProjectName] && (
                                                 <button
-                                                    onClick={() => {
-                                                        // Match component with KiCad data
-                                                        const kicadMatch = matchWithKiCad(component, component.ProjectName);
-                                                        // Generate formatted text
-                                                        const kicadData = generateKiCadComponent(component, kicadMatch);
-                                                        
-                                                        // Copy to clipboard
-                                                        navigator.clipboard.writeText(kicadData.copyText).then(() => {
-                                                            // Show "Done" feedback
+                                                    onClick={async () => {
+                                                        // Call the function from the hook
+                                                        const success = await onCopyKiCadSymbol(component);
+                                                        if (success) {
+                                                            // Show visual feedback on success
                                                             setCopiedId(component.id);
-                                                            setTimeout(() => setCopiedId(null), 2000);
-                                                        });
+                                                            // Clear the "Copied!" message after 2 seconds
+                                                            setTimeout(() => setCopiedId(null), 2000); 
+                                                        }
                                                     }}
-                                                    className={`${
+                                                    className={`font-medium py-1 px-3 rounded-lg text-sm transition duration-200 inline-flex items-center gap-1 mt-2 md:mt-0 ${
                                                         copiedId === component.id 
-                                                            ? 'bg-green-600'  // Green when copied
-                                                            : 'bg-purple-600 hover:bg-purple-500'  // Purple normally
-                                                    } text-white font-medium py-1 px-2 rounded-lg text-xs transition duration-200 inline-flex items-center gap-1`}
-                                                    title="Copy for KiCad"
+                                                            ? 'bg-green-600 text-white' 
+                                                            : 'bg-gray-700 hover:bg-keylife-accent/80 text-gray-300 hover:text-white'
+                                                    }`}
+                                                    title="Copy Raw KiCad Symbol Data to Clipboard"
+                                                    disabled={copiedId === component.id} // Disable while showing 'Copied!'
                                                 >
-                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                    </svg>
-                                                    {copiedId === component.id ? '✓ Done' : 'KiCad'}
+                                                    {copiedId === component.id ? (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                            Copied!
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5l4 4m0 0l-4 4m4-4H9" />
+                                                            </svg>
+                                                            Copy KiCad
+                                                        </>
+                                                    )}
                                                 </button>
                                             )}
                                         </div>

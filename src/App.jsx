@@ -112,7 +112,8 @@ export default function App() {
         parseKiCadSchematic,
         matchWithKiCad,
         generateKiCadComponent,
-        autoLinkWithBOM
+        autoLinkWithBOM,
+        copyKiCadSymbolToClipboard
     } = useKiCadParser();
 
     // UI State
@@ -320,6 +321,7 @@ export default function App() {
                                 matchWithKiCad={matchWithKiCad}
                                 generateKiCadComponent={generateKiCadComponent}
                                 designatorConfig={config.designatorMeanings}
+                                onCopyKiCadSymbol={copyKiCadSymbolToClipboard}
                             />
                         </>
                     )}
