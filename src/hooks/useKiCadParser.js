@@ -1,14 +1,54 @@
 /**
  * @file useKiCadParser.js
  * @description Hook for parsing KiCad schematic files and linking with BOM components
+ * @updated Added auto-linking, sync params, and unmatched components tracking
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export const useKiCadParser = () => {
     const [kicadSchematics, setKicadSchematics] = useState({});
     const [isParsingKiCad, setIsParsingKiCad] = useState(false);
     const [kicadError, setKicadError] = useState('');
+    const [syncParams, setSyncParams] = useState(['Datasheet', 'Mfr. Part #']);
+    const [unmatchedComponents, setUnmatchedComponents] = useState({});
+
+    // Load data from localStorage on mount
+    useEffect(() => {
+        try {
+            const savedSchematics = localStorage.getItem('kicadSchematics');
+            if (savedSchematics) {
+                setKicadSchematics(JSON.parse(savedSchematics));
+            }
+
+            const savedSyncParams = localStorage.getItem('kicadSyncParams');
+            if (savedSyncParams) {
+                setSyncParams(JSON.parse(savedSyncParams));
+            }
+        } catch (err) {
+            console.error('Failed to load KiCad data:', err);
+        }
+    }, []);
+
+    // Save schematics to localStorage
+    useEffect(() => {
+        try {
+            if (Object.keys(kicadSchematics).length > 0) {
+                localStorage.setItem('kicadSchematics', JSON.stringify(kicadSchematics));
+            }
+        } catch (err) {
+            console.error('Failed to save KiCad schematics:', err);
+        }
+    }, [kicadSchematics]);
+
+    // Save sync params to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem('kicadSyncParams', JSON.stringify(syncParams));
+        } catch (err) {
+            console.error('Failed to save sync params:', err);
+        }
+    }, [syncParams]);
 
     /**
      * Parse KiCad schematic file (.kicad_sch)
@@ -20,29 +60,11 @@ export const useKiCadParser = () => {
 
         try {
             const text = await file.text();
-            const components = [];
+            const symbolData = {};
 
-            // KiCad 6+ uses S-expression format
-            // Parse symbol instances
-            const symbolRegex = /\(symbol\s*\(lib_id\s*"([^"]+)"\)\s*\(at\s*[\d.-]+\s*[\d.-]+\s*\d+\)\s*(?:\(mirror\s*[xy]\)\s*)?(?:\(unit\s*\d+\)\s*)?\(in_bom\s*yes\)\s*\(on_board\s*yes\)\s*(?:\(dnp\s*no\)\s*)?\(uuid\s*[^)]+\)\s*\(property\s*"Reference"\s*"([^"]+)"/g;
-            
-            // Extract symbol data
-            let match;
-            const symbolMap = new Map();
-            
-            while ((match = symbolRegex.exec(text)) !== null) {
-                const libId = match[1];
-                const reference = match[2];
-                symbolMap.set(reference, { libId, reference });
-            }
-
-            // Parse properties for each symbol
-            const propertyRegex = /\(property\s*"([^"]+)"\s*"([^"]+)"\s*\(at\s*[\d.-]+\s*[\d.-]+\s*\d+\)/g;
-            
-            // Group properties by their position in the file
+            // Parse KiCad 6+ S-expression format
             const lines = text.split('\n');
             let currentSymbol = null;
-            const symbolData = {};
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
@@ -57,7 +79,8 @@ export const useKiCadParser = () => {
                             Value: '',
                             Footprint: '',
                             Datasheet: '',
-                            Description: ''
+                            Description: '',
+                            'Mfr. Part #': ''
                         };
                     }
                 }
@@ -74,17 +97,7 @@ export const useKiCadParser = () => {
                 }
             }
 
-            // Convert to array
-            Object.values(symbolData).forEach(comp => {
-                if (comp.Reference && comp.Value) {
-                    components.push({
-                        ...comp,
-                        ProjectName: projectName,
-                        Source: 'KiCad',
-                        id: `kicad-${projectName}-${comp.Reference}-${Date.now()}`
-                    });
-                }
-            });
+            const componentCount = Object.keys(symbolData).length;
 
             // Store schematic data
             setKicadSchematics(prev => ({
@@ -92,26 +105,96 @@ export const useKiCadParser = () => {
                 [projectName]: {
                     fileName: file.name,
                     uploadDate: new Date().toISOString(),
-                    components: components.length,
-                    schematicData: symbolData
+                    components: componentCount,
+                    schematicData: symbolData,
+                    metadata: {
+                        'File Format': 'KiCad 6.0+',
+                        'Parsed': new Date().toLocaleString()
+                    }
                 }
             }));
 
-            setKicadError(`✓ Successfully parsed ${components.length} components from ${file.name}`);
+            setKicadError(`✓ Successfully parsed ${componentCount} components from ${file.name}`);
             setTimeout(() => setKicadError(''), 5000);
 
-            return components;
+            return componentCount;
         } catch (error) {
             console.error('KiCad parsing error:', error);
             setKicadError(`Failed to parse KiCad file: ${error.message}`);
-            return [];
+            return 0;
         } finally {
             setIsParsingKiCad(false);
         }
     }, []);
 
     /**
-     * Match BOM component with KiCad schematic component
+     * Auto-link BOM components with KiCad schematic
+     * Returns matched and unmatched components
+     */
+    const autoLinkWithBOM = useCallback((bomComponents, projectName) => {
+        const schematic = kicadSchematics[projectName];
+        if (!schematic) {
+            return { matched: [], unmatched: [] };
+        }
+
+        const schematicData = schematic.schematicData;
+        const matched = [];
+        const unmatched = [];
+        const usedSchematicRefs = new Set();
+
+        bomComponents.forEach(bomComp => {
+            if (bomComp.ProjectName !== projectName) return;
+
+            let kicadMatch = null;
+
+            // 1. Primary: Match by Designator/Reference
+            const designator = bomComp.Designator || bomComp.Reference;
+            if (designator && schematicData[designator] && !usedSchematicRefs.has(designator)) {
+                kicadMatch = schematicData[designator];
+                usedSchematicRefs.add(designator);
+            }
+
+            // 2. Fallback: Try sync parameters in order
+            if (!kicadMatch) {
+                for (const param of syncParams) {
+                    const bomValue = bomComp[param];
+                    if (!bomValue) continue;
+
+                    const schematicRef = Object.keys(schematicData).find(ref => {
+                        const schematicComp = schematicData[ref];
+                        return schematicComp[param] === bomValue && !usedSchematicRefs.has(ref);
+                    });
+
+                    if (schematicRef) {
+                        kicadMatch = schematicData[schematicRef];
+                        usedSchematicRefs.add(schematicRef);
+                        break;
+                    }
+                }
+            }
+
+            if (kicadMatch) {
+                matched.push({
+                    bomComponent: bomComp,
+                    kicadComponent: kicadMatch,
+                    matchedBy: designator && schematicData[designator] ? 'Designator' : 'Sync Parameter'
+                });
+            } else {
+                unmatched.push(bomComp);
+            }
+        });
+
+        // Update unmatched components state
+        setUnmatchedComponents(prev => ({
+            ...prev,
+            [projectName]: unmatched
+        }));
+
+        return { matched, unmatched };
+    }, [kicadSchematics, syncParams]);
+
+    /**
+     * Match single BOM component with KiCad
      */
     const matchWithKiCad = useCallback((bomComponent, projectName) => {
         const schematic = kicadSchematics[projectName];
@@ -125,12 +208,15 @@ export const useKiCadParser = () => {
             return schematicData[designator];
         }
 
-        // Try to match by value
-        const value = bomComponent.Value;
-        if (value) {
+        // Try sync parameters
+        for (const param of syncParams) {
+            const bomValue = bomComponent[param];
+            if (!bomValue) continue;
+
             const match = Object.values(schematicData).find(
-                comp => comp.Value === value && !comp._matched
+                comp => comp[param] === bomValue && !comp._matched
             );
+            
             if (match) {
                 match._matched = true;
                 return match;
@@ -138,7 +224,7 @@ export const useKiCadParser = () => {
         }
 
         return null;
-    }, [kicadSchematics]);
+    }, [kicadSchematics, syncParams]);
 
     /**
      * Generate KiCad-ready component string
@@ -149,8 +235,8 @@ export const useKiCadParser = () => {
         const footprint = bomComponent.Footprint || kicadMatch?.Footprint || '';
         const mfrPart = bomComponent['Mfr. Part #'] || '';
         const description = bomComponent.Description || kicadMatch?.Description || '';
+        const datasheet = bomComponent.Datasheet || kicadMatch?.Datasheet || '';
 
-        // Generate KiCad symbol format
         return {
             reference,
             value,
@@ -161,58 +247,48 @@ export const useKiCadParser = () => {
                 { name: 'Footprint', value: footprint },
                 { name: 'MPN', value: mfrPart },
                 { name: 'Description', value: description },
-                { name: 'Manufacturer', value: bomComponent.Manufacturer || '' }
+                { name: 'Manufacturer', value: bomComponent.Manufacturer || '' },
+                { name: 'Datasheet', value: datasheet }
             ],
             copyText: `Reference: ${reference}
 Value: ${value}
 Footprint: ${footprint}
 MPN: ${mfrPart}
 Manufacturer: ${bomComponent.Manufacturer || 'N/A'}
-Description: ${description}`
+Description: ${description}
+Datasheet: ${datasheet}`
         };
     }, []);
 
     /**
-     * Save schematic data to localStorage
+     * Clear schematic data for a project
      */
-    const saveKiCadData = useCallback(() => {
-        try {
-            localStorage.setItem('kicadSchematics', JSON.stringify(kicadSchematics));
-        } catch (err) {
-            console.error('Failed to save KiCad data:', err);
-        }
-    }, [kicadSchematics]);
+    const clearSchematicData = useCallback((projectName) => {
+        setKicadSchematics(prev => {
+            const updated = { ...prev };
+            delete updated[projectName];
+            return updated;
+        });
 
-    /**
-     * Load schematic data from localStorage
-     */
-    const loadKiCadData = useCallback(() => {
-        try {
-            const saved = localStorage.getItem('kicadSchematics');
-            if (saved) {
-                setKicadSchematics(JSON.parse(saved));
-            }
-        } catch (err) {
-            console.error('Failed to load KiCad data:', err);
-        }
+        setUnmatchedComponents(prev => {
+            const updated = { ...prev };
+            delete updated[projectName];
+            return updated;
+        });
     }, []);
-
-    // Auto-save on change
-    useState(() => {
-        loadKiCadData();
-    }, []);
-
-    useState(() => {
-        saveKiCadData();
-    }, [kicadSchematics]);
 
     return {
         kicadSchematics,
         isParsingKiCad,
         kicadError,
         setKicadError,
+        syncParams,
+        setSyncParams,
+        unmatchedComponents,
         parseKiCadSchematic,
         matchWithKiCad,
-        generateKiCadComponent
+        generateKiCadComponent,
+        autoLinkWithBOM,
+        clearSchematicData
     };
 };
