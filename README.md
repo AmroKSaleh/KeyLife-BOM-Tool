@@ -4,9 +4,13 @@
 [![License](https://img.shields.io/badge/license-ISC-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 
-A modern, AI-powered Bill of Materials (BOM) consolidation tool for managing and searching electronic component libraries across multiple projects.
+A modern, Bill of Materials (BOM) consolidation tool for managing and searching electronic component libraries across multiple projects.
 
 ![KeyLife BOM Tool](docs/screenshot.png)
+
+**Navigation:** [README](README.md) | [Quick Start](Quickstart.md) | [Features](Features.md) | [Deployment](Deployment.md)
+
+**Author:** Amro K. Saleh | **Version:** 0.1.0 Beta | **Date:** 2025
 
 ## 🌟 Features
 
@@ -240,5 +244,5 @@ For issues or questions:
 
 ---
 
-**By Amro K Saleh**
+**By Amro K. Saleh**
 **Built with ❤️ for KeyLife Electronics R&D Team**

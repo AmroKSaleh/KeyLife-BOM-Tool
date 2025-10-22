@@ -4,6 +4,10 @@ All notable changes to the KeyLife Electronics BOM Consolidation Tool.
 
 ---
 
+**Navigation:** [README](README.md) | [Quick Start](Quickstart.md) | [Features](Features.md) | [Deployment](Deployment.md)
+
+**Author:** Amro K. Saleh | **Version:** 0.1.0 Beta | **Date:** 2025
+
 ## [0.1.0-beta.2] - 2025-10-21
 
 ### 🐛 Bug Fixes
@@ -57,7 +61,7 @@ After: Page stays empty ✅
 
 ---
 
-## [0.1.0-beta.1] - 2024-10-21
+## [0.1.0-beta.1] - 2025-10-21
 
 ### ✨ New Features
 
@@ -114,7 +118,7 @@ After: Page stays empty ✅
 
 ---
 
-## [0.1.0-beta.0] - 2024-10-20
+## [0.1.0-beta.0] - 2025-10-20
 
 ### 🎉 Initial Release
 
@@ -151,9 +155,9 @@ After: Page stays empty ✅
 
 | Version | Date | Type | Description |
 |---------|------|------|-------------|
-| 0.1.0-beta.2 | 2024-10-21 | Bug Fix | Fixed last project deletion bug |
-| 0.1.0-beta.1 | 2024-10-21 | Feature | Added management & KiCad features |
-| 0.1.0-beta.0 | 2024-10-20 | Release | Initial beta release |
+| 0.1.0-beta.2 | 2025-10-21 | Bug Fix | Fixed last project deletion bug |
+| 0.1.0-beta.1 | 2025-10-21 | Feature | Added management & KiCad features |
+| 0.1.0-beta.0 | 2025-10-20 | Release | Initial beta release |
 
 ---
 
