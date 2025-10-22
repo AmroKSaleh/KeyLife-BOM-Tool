@@ -20,13 +20,86 @@ const CURRENT_VERSION = '1.0';
 /**
  * Custom hook for managing BOM data operations
  */
-export const useBOMData = () => {
+export const useBOMData = (config) => {
     const [projectName, setProjectName] = useState('');
     const [components, setComponents] = useState([]);
     const [headers, setHeaders] = useState([]);
     const [error, setError] = useState('');
     const [fileName, setFileName] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+
+    /**
+     * Find designator column in headers
+     */
+    const findDesignatorColumn = useCallback((headers) => {
+        // Try primary column first
+        if (headers.includes(config.designatorColumn)) {
+            return config.designatorColumn;
+        }
+
+        // Try alternates
+        for (const alt of config.alternateDesignatorColumns) {
+            if (headers.includes(alt)) {
+                return alt;
+            }
+        }
+
+        return null;
+    }, [config]);
+
+    /**
+     * Normalize component data (map fields to standard names)
+     */
+    const normalizeComponent = useCallback((component, designatorColumn) => {
+        const normalized = { ...component };
+
+        // Map designator to standard name
+        if (designatorColumn && designatorColumn !== 'Designator') {
+            normalized.Designator = component[designatorColumn];
+        }
+
+        // Apply field mappings
+        Object.entries(config.fieldMappings).forEach(([from, to]) => {
+            if (component[from] && !component[to]) {
+                normalized[to] = component[from];
+            }
+        });
+
+        return normalized;
+    }, [config]);
+
+    /**
+     * Parse a single CSV line handling quoted values
+     * @param {string} line - CSV line
+     * @returns {string[]} - Array of values
+     */
+    const parseCsvLine = (line) => {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    current += '"';
+                    i++; // Skip next quote
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current);
+
+        return values;
+    };
 
     // --- Persistence Layer ---
 
@@ -157,14 +230,23 @@ export const useBOMData = () => {
                     isFirstRow = false;
                 } else if (Object.keys(rowData).length > 0) {
                     rowData.ProjectName = currentProjectName;
-                    rowData.id = `${currentProjectName}-${rowNumber}-${Date.now()}`;
-                    data.push(rowData);
+                    const normalized = normalizeComponent(rowData, designatorColumn);
+                    normalized.id = `${currentProjectName}-${rowNumber}-${Date.now()}`;
+                    data.push(normalized);
                 }
             });
+            
+            const designatorColumn = findDesignatorColumn(excelHeaders);
+            
+            if (!designatorColumn) {
+                throw new Error(
+                    `Could not find designator column. Looking for: ${config.designatorColumn} or ${config.alternateDesignatorColumns.join(', ')}`
+                );
+            }
 
             if (data.length === 0) {
                 throw new Error('No data rows found in the Excel file.');
-            }
+            }            
 
             // Merge headers (ensure ProjectName is first)
             setHeaders(prev => {
@@ -181,7 +263,7 @@ export const useBOMData = () => {
             console.error('Excel parsing error:', err);
             throw new Error(`Excel parsing failed: ${err.message}`);
         }
-    }, []);
+    }, [config, findDesignatorColumn, normalizeComponent]);
 
     /**
      * Parse CSV files with improved handling
@@ -189,19 +271,27 @@ export const useBOMData = () => {
      * @param {string} currentProjectName - Project name to assign
      */
     const parseCSV = useCallback((csvText, currentProjectName) => {
-        try {
+    try {
             const lines = csvText.trim().split(/\r?\n/);
             
             if (lines.length < 2) {
                 throw new Error('CSV must have at least a header row and one data row.');
             }
 
-            // Parse CSV header
             const headerLine = lines[0];
             const csvHeaders = parseCsvLine(headerLine).map(h => h.trim());
 
             if (csvHeaders.length === 0) {
                 throw new Error('No headers found in CSV file.');
+            }
+
+            // Find designator column
+            const designatorColumn = findDesignatorColumn(csvHeaders);
+            
+            if (!designatorColumn) {
+                throw new Error(
+                    `Could not find designator column. Looking for: ${config.designatorColumn} or ${config.alternateDesignatorColumns.join(', ')}`
+                );
             }
 
             // Parse data rows
@@ -240,40 +330,7 @@ export const useBOMData = () => {
             console.error('CSV parsing error:', err);
             throw new Error(`CSV parsing failed: ${err.message}`);
         }
-    }, []);
-
-    /**
-     * Parse a single CSV line handling quoted values
-     * @param {string} line - CSV line
-     * @returns {string[]} - Array of values
-     */
-    const parseCsvLine = (line) => {
-        const values = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            const nextChar = line[i + 1];
-
-            if (char === '"') {
-                if (inQuotes && nextChar === '"') {
-                    current += '"';
-                    i++; // Skip next quote
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (char === ',' && !inQuotes) {
-                values.push(current);
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        values.push(current);
-
-        return values;
-    };
+    }, [config, findDesignatorColumn, normalizeComponent, parseCsvLine]);
 
     // --- Action Functions ---
 

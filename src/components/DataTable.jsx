@@ -18,9 +18,12 @@ export default function DataTable({
     clearLibrary, 
     saveLibraryToFile,
     importLibrary,
+    selectedTypes,
+    setSelectedTypes,
     kicadSchematics,
+    matchWithKiCad,
     generateKiCadComponent,
-    matchWithKiCad
+    designatorConfig
 }) {
     const [editingId, setEditingId] = useState(null);
     const [editedData, setEditedData] = useState({});
@@ -31,11 +34,33 @@ export default function DataTable({
         [components]
     );
 
+    const componentTypes = useMemo(() => {
+        const types = new Set();
+        components.forEach(comp => {
+            const designator = comp.Designator || comp.Reference || '';
+            const prefix = designator.match(/^[A-Z]+/)?.[0];
+            if (prefix && designatorConfig[prefix]) {
+                types.add(designatorConfig[prefix]);
+            }
+        });
+        return Array.from(types).sort();
+    }, [components, designatorConfig]);
+
     const filteredComponents = useMemo(() => {
         let filtered = components;
 
         if (selectedProject) {
             filtered = filtered.filter(c => c.ProjectName === selectedProject);
+        }
+
+        // Type filter
+        if (selectedTypes.length > 0) {
+            filtered = filtered.filter(comp => {
+                const designator = comp.Designator || comp.Reference || '';
+                const prefix = designator.match(/^[A-Z]+/)?.[0];
+                const type = designatorConfig[prefix];
+                return selectedTypes.includes(type);
+            });
         }
 
         if (searchTerm) {
@@ -48,7 +73,7 @@ export default function DataTable({
         }
         
         return filtered;
-    }, [components, searchTerm, selectedProject]);
+    }, [components, searchTerm, selectedProject, selectedTypes, designatorConfig]);
 
     const stats = useMemo(() => ({
         total: components.length,
@@ -111,6 +136,31 @@ export default function DataTable({
                                 <option value="">All Projects</option>
                                 {projectNames.map(name => (
                                     <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                            <svg 
+                                className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+
+                        {/* Component Type Filter */}
+                        <div className="relative w-full md:w-48">
+                            <select
+                                value={selectedTypes[0] || ''}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setSelectedTypes(value ? [value] : []);
+                                }}
+                                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-keylife-accent transition duration-200 appearance-none cursor-pointer"
+                            >
+                                <option value="">All Types</option>
+                                {componentTypes.map(type => (
+                                    <option key={type} value={type}>{type}</option>
                                 ))}
                             </select>
                             <svg 
@@ -267,6 +317,35 @@ export default function DataTable({
                                                 </svg>
                                                 Del
                                             </button>
+                                            {/* KiCad Copy Button - Only show if schematic exists for this project */}
+                                            {kicadSchematics[component.ProjectName] && (
+                                                <button
+                                                    onClick={() => {
+                                                        // Match component with KiCad data
+                                                        const kicadMatch = matchWithKiCad(component, component.ProjectName);
+                                                        // Generate formatted text
+                                                        const kicadData = generateKiCadComponent(component, kicadMatch);
+                                                        
+                                                        // Copy to clipboard
+                                                        navigator.clipboard.writeText(kicadData.copyText).then(() => {
+                                                            // Show "Done" feedback
+                                                            setCopiedId(component.id);
+                                                            setTimeout(() => setCopiedId(null), 2000);
+                                                        });
+                                                    }}
+                                                    className={`${
+                                                        copiedId === component.id 
+                                                            ? 'bg-green-600'  // Green when copied
+                                                            : 'bg-purple-600 hover:bg-purple-500'  // Purple normally
+                                                    } text-white font-medium py-1 px-2 rounded-lg text-xs transition duration-200 inline-flex items-center gap-1`}
+                                                    title="Copy for KiCad"
+                                                >
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                    </svg>
+                                                    {copiedId === component.id ? '✓ Done' : 'KiCad'}
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </td>
