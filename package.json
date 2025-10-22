@@ -22,7 +22,10 @@
     "reinstall": "npm run clean && npm install",
     "lint": "eslint src --ext .js,.jsx",
     "format": "prettier --write \"src/**/*.{js,jsx,json,css,md}\"",
-    "check": "npm run lint && npm run format"
+    "check": "npm run lint && npm run format",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
@@ -31,8 +34,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^7.1.11"
+    "happy-dom": "^20.0.8",
+    "vite": "^7.1.11",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=18.0.0",
