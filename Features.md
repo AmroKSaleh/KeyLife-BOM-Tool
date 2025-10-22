@@ -4,6 +4,10 @@ Complete guide to all features in the KeyLife Electronics BOM Consolidation Tool
 
 ---
 
+**Navigation:** [README](README.md) | [Quick Start](Quickstart.md) | [Features](Features.md) | [Deployment](Deployment.md)
+
+**Author:** Amro K. Saleh | **Version:** 0.1.0 Beta | **Date:** 2025
+
 ## 📊 **Core Features**
 
 ### 1. **Multi-Format BOM Upload**
@@ -127,7 +131,7 @@ Save your library to a specific location on your computer.
 ```json
 {
   "version": "1.0",
-  "savedAt": "2024-10-21T...",
+  "savedAt": "2025-10-21T...",
   "projectCount": 3,
   "componentCount": 156,
   "headers": [...],
@@ -398,6 +402,6 @@ Submit to KeyLife Electronics R&D Team
 
 ---
 
-**Last Updated:** October 2024  
+**Last Updated:** October 2025  
 **Version:** 0.1.0 Beta  
 **Author:** Amro K. Saleh, KeyLife Electronics

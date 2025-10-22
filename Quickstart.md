@@ -4,6 +4,10 @@ Get up and running with the KeyLife BOM Consolidation Tool in 5 minutes!
 
 ---
 
+**Navigation:** [README](README.md) | [Quick Start](Quickstart.md) | [Features](Features.md) | [Deployment](Deployment.md)
+
+**Author:** Amro K. Saleh | **Version:** 0.1.0 Beta | **Date:** 2025
+
 ## 🎯 **What You'll Learn**
 1. How to upload your first BOM
 2. How to search and manage components
@@ -132,7 +136,7 @@ Make sure your BOM has:
    - File downloads automatically
    - Check Downloads folder
 
-**File saved as:** `keylife_bom_library_2024-10-21.json`
+**File saved as:** `keylife_bom_library_2025-10-21.json`
 
 ### Import Existing Library
 1. Click **"Import Library"**

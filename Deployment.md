@@ -2,6 +2,10 @@
 
 Complete guide for deploying the KeyLife Electronics BOM Consolidation Tool.
 
+**Navigation:** [README](README.md) | [Quick Start](Quickstart.md) | [Features](Features.md) | [Deployment](Deployment.md)
+
+**Author:** Amro K. Saleh | **Version:** 0.1.0 Beta | **Date:** 2025
+
 ## 📋 Table of Contents
 
 1. [Pre-Deployment Checklist](#pre-deployment-checklist)
@@ -497,4 +501,4 @@ For deployment issues:
 ---
 
 **Last Updated**: October 2025  
-**Author**: Amro K Saleh, KeyLife Electronics R&D
+**Author**: Amro K. Saleh, KeyLife Electronics R&D
