@@ -76,6 +76,11 @@ export function generateMPNHash(mpn) {
  * extractMPN(component) // Returns "RC0603FR-07100KL"
  */
 export function extractMPN(component) {
+    // Handle null/undefined component
+    if (!component || typeof component !== 'object') {
+        return null;
+    }
+
     // Common field names for Manufacturer Part Number
     const mpnFields = [
         'Mfr. Part #',
