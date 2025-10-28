@@ -102,7 +102,7 @@ npm start
 
 ## 🏗️ Project Structure
 
-```
+```markdown
 bom-consolidation-tool/
 ├── public/
 │   ├── favicon.ico
@@ -200,6 +200,7 @@ This is an internal R&D tool for KeyLife Electronics. For contributions:
 ## 📝 Changelog
 
 ### v0.1.0-beta (Current)
+
 - Initial release
 - Multi-format BOM import
 - AI-powered alternative finder
@@ -228,6 +229,7 @@ KeyLife Electronics
 ## 🆘 Support
 
 For issues or questions:
+
 1. Check this README
 2. Review code comments
 3. Contact the R&D team
