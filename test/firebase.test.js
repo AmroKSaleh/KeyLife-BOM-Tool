@@ -40,7 +40,7 @@ vi.mock('firebase/auth', async (importOriginal) => {
         getAuth: vi.fn(() => ({
             get currentUser() { return mockCurrentUser; }
         })),
-        GoogleAuthProvider: vi.fn(() => ({})),
+        GoogleAuthProvider: class MockGoogleAuthProvider {},
         signInWithPopup: vi.fn(async (auth, provider) => { /* ... unchanged ... */
             const user = createMockUser('google-uid', 'google@example.com', 'Google User');
             triggerAuthStateChange(user); return { user };
