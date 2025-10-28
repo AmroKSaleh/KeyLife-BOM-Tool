@@ -26,12 +26,23 @@ export function normalizeComponent(component, config, designatorColumn) {
     return normalized;
 }
 
+/**
+ * Processes BOM rows. It flattens rows with multiple designators if no quantity
+ * column exists or if the quantity is <= 1. Rows with multiple designators AND
+ * quantity > 1 are flagged as ambiguous.
+ *
+ * @param {Array<object>} rawRows - Array of row objects from the parsed file.
+ * @param {Array<string>} rawHeaders - Array of header strings.
+ * @param {string} projectName - The name of the project.
+ * @param {string} designatorColumn - The identified designator column name.
+ * @returns {Array<object>} Array of processed component objects. Ambiguous rows
+ * will have `_ambiguousQty: true` and `_potentialDesignators: [...]`.
+ */
 export function flattenBOM(rawRows, rawHeaders, projectName, designatorColumn) {
     if (!rawRows || !rawHeaders || !projectName || !designatorColumn) return [];
-    const flattenedComponents = [];
+    const processedComponents = []; // Renamed from flattenedComponents
     let rowCounter = 0;
     const qtyColumn = rawHeaders.find(h => /^(qty|quantity|qnt|count|amount)$/i.test(h?.trim() || ''));
-    const hasQuantityColumn = !!qtyColumn;
 
     for (const rawRow of rawRows) {
         if (!rawRow) continue;
@@ -41,28 +52,67 @@ export function flattenBOM(rawRows, rawHeaders, projectName, designatorColumn) {
         const separatorsRegex = /[,;]\s*|\s+/;
         const potentialDesignators = designatorString.split(separatorsRegex).filter(d => d && d.trim() !== '');
         const hasMultipleDesignators = potentialDesignators.length > 1;
-        const shouldFlatten = hasMultipleDesignators && !hasQuantityColumn;
+
+        let shouldFlatten = false;
+        let isAmbiguous = false; // Flag for ambiguous rows
+
+        if (hasMultipleDesignators) {
+            if (!qtyColumn) {
+                // Flatten if no quantity column exists
+                shouldFlatten = true;
+            } else {
+                const qtyValue = rawRow[qtyColumn];
+                const parsedQty = parseInt(String(qtyValue).trim(), 10);
+                if (isNaN(parsedQty) || parsedQty <= 1) {
+                    // Flatten if quantity is 1 or invalid
+                    shouldFlatten = true;
+                } else {
+                    // --- AMBIGUOUS CASE ---
+                    // Multiple designators AND quantity > 1
+                    isAmbiguous = true;
+                    shouldFlatten = false; // Don't flatten here, flag it instead
+                }
+            }
+        }
 
         if (shouldFlatten) {
-            const designators = potentialDesignators;
-            for (const designator of designators) {
+            // Flatten: Create one entry per designator
+            for (const designator of potentialDesignators) {
                 const componentId = `${projectName}-${designator}-${Date.now()}-${rowCounter++}`;
                 const componentData = { id: componentId, ProjectName: projectName };
                 for (const header of rawHeaders) {
-                    componentData[header] = (header === designatorColumn) ? designator : (rawRow[header] || '');
+                    if (header === designatorColumn) {
+                        componentData[header] = designator;
+                    } else if (header === qtyColumn) {
+                        componentData[header] = '1'; // Explicitly set qty to 1
+                    } else {
+                        componentData[header] = rawRow[header] || '';
+                    }
                 }
-                flattenedComponents.push(componentData);
+                processedComponents.push(componentData);
             }
         } else {
-            const componentId = `${projectName}-${designatorString.trim()}-${Date.now()}-${rowCounter++}`;
+            // Don't flatten OR handle ambiguous case: Create a single entry
+            const componentId = `${projectName}-${designatorString.trim().replace(/[^a-zA-Z0-9_-]/g, '_')}-${Date.now()}-${rowCounter++}`;
             const componentData = { id: componentId, ProjectName: projectName };
             for (const header of rawHeaders) {
                 componentData[header] = rawRow[header] || '';
             }
-            flattenedComponents.push(componentData);
+
+            // --- ADD AMBIGUOUS FLAG ---
+            if (isAmbiguous) {
+                componentData._ambiguousQty = true;
+                componentData._potentialDesignators = potentialDesignators; // Store the individual designators found
+                 // Store original qty and column name for reference in resolution modal
+                componentData._originalQty = rawRow[qtyColumn];
+                componentData._qtyColumnName = qtyColumn;
+            }
+            // --- END ADD AMBIGUOUS FLAG ---
+
+            processedComponents.push(componentData);
         }
     }
-    return flattenedComponents;
+    return processedComponents; // Return all processed components, including flagged ones
 }
 
 /**
@@ -171,6 +221,18 @@ export async function parseExcel(buffer) {
     return { rawHeaders: validHeaders, rawRows }; // Return only valid headers
 }
 
+/**
+ * Processes a BOM file (CSV or Excel).
+ *
+ * @param {File} file - The file object.
+ * @param {string} projectName - The name of the project.
+ * @param {object} config - The application configuration object.
+ * @returns {Promise<object>} An object containing:
+ * - `validComponents`: Array of components ready for import.
+ * - `ambiguousComponents`: Array of components needing quantity resolution.
+ * - `headers`: Array of all detected headers.
+ * - `count`: Total number of original rows processed (excluding header).
+ */
 export async function processBOMFile(file, projectName, config) {
     if (!projectName || !projectName.trim()) throw new Error('Project name is required');
     if (!file) throw new Error('No file provided');
@@ -190,25 +252,49 @@ export async function processBOMFile(file, projectName, config) {
             throw new Error('Unsupported file format. Please upload .csv, .xls, or .xlsx file.');
         }
     } catch (parseError) {
-        // Re-throw parsing errors for the caller to handle
         throw new Error(`Error parsing file "${file.name}": ${parseError.message}`);
     }
-
 
     const designatorColumn = findDesignatorColumn(rawHeaders, config);
     if (!designatorColumn) {
         throw new Error(`Could not find designator column in "${file.name}". Expected one of: ${[config.designatorColumn, ...(config.alternateDesignatorColumns || [])].join(', ')}`);
     }
 
-    const flattenedComponents = flattenBOM(rawRows, rawHeaders, projectName, designatorColumn);
-    const normalizedComponents = flattenedComponents.map(comp => normalizeComponent(comp, config, designatorColumn));
+    // Process all rows, flagging ambiguous ones
+    const processedComponents = flattenBOM(rawRows, rawHeaders, projectName, designatorColumn);
 
-    const headersSet = new Set(['ProjectName']);
-    normalizedComponents.forEach(comp => {
-        Object.keys(comp).forEach(key => { if (key !== 'id') headersSet.add(key); });
+    // --- SEPARATE AMBIGUOUS COMPONENTS ---
+    const validComponents = [];
+    const ambiguousComponents = [];
+    processedComponents.forEach(comp => {
+        if (comp._ambiguousQty) {
+            ambiguousComponents.push(comp);
+        } else {
+            validComponents.push(comp);
+        }
     });
-    const headers = ['ProjectName', ...Array.from(headersSet).filter(h => h !== 'ProjectName').sort()]; // Sort headers alphabetically
+    // --- END SEPARATION ---
 
-    return { components: normalizedComponents, headers, count: normalizedComponents.length };
+    // Normalize only the valid components for now
+    const normalizedValidComponents = validComponents.map(comp => normalizeComponent(comp, config, designatorColumn));
+
+    // Calculate headers based on ALL processed components before normalization/separation
+    const headersSet = new Set(['ProjectName']);
+    processedComponents.forEach(comp => {
+        // Exclude internal flags from headers
+        Object.keys(comp).forEach(key => {
+            if (key !== 'id' && !key.startsWith('_')) {
+                 headersSet.add(key);
+            }
+        });
+    });
+    const headers = ['ProjectName', ...Array.from(headersSet).filter(h => h !== 'ProjectName').sort()];
+
+    return {
+        validComponents: normalizedValidComponents,
+        ambiguousComponents, // Return the ambiguous ones separately
+        headers,
+        count: rawRows.length // Count original rows
+    };
 }
 
