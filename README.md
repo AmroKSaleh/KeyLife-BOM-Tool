@@ -1,6 +1,7 @@
 # 🔧 KeyLife Electronics - BOM Consolidation Tool
 
-[![Version](https://img.shields.io/badge/version-0.1.0--beta-blue.svg)](https://github.com/yourusername/bom-tool)
+[![NodeJS with Webpack CI](https://github.com/AmroKSaleh/KeyLife-BOM-Tool/actions/workflows/ci.yml/badge.svg)](https://github.com/AmroKSaleh/KeyLife-BOM-Tool/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.2.0--beta-blue.svg)](https://github.com/yourusername/bom-tool)
 [![License](https://img.shields.io/badge/license-ISC-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 
@@ -10,7 +11,7 @@ A modern, Bill of Materials (BOM) consolidation tool for managing and searching 
 
 **Navigation:** [README](README.md) | [Quick Start](Quickstart.md) | [Features](Features.md) | [Deployment](Deployment.md)
 
-**Author:** Amro K. Saleh | **Version:** 0.1.0 Beta | **Date:** 2025
+**Author:** Amro K. Saleh | **Version:** 0.2.0 Beta | **Date:** 2025
 
 ## 🌟 Features
 
