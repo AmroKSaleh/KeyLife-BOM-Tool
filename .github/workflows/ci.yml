@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         # Use the Node.js version specified in your package.json engines field
-        node-version: [18.x] # Keep consistent with your project requirement
+        node-version: [22.x] # Keep consistent with your project requirement
 
     steps:
       - name: Checkout code
