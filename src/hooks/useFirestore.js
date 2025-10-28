@@ -17,7 +17,8 @@ import {
     saveUserSettings,
     loadUserSettings,
     getAllComponents,
-    checkMPNExists
+    checkMPNExists,
+    findLPNForMPN // <-- Corrected: Ensure this function is imported from firestoreService.js
 } from '../services/firestoreService.js';
 
 import { getCurrentUserId, auth } from '../config/firebase.js';
@@ -29,7 +30,6 @@ export const useFirestore = () => {
     const [error, setError] = useState('');
     const [userId, setUserId] = useState(null);
 
-    // Get current user ID
     // Get current user ID and subscribe to auth changes
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -251,6 +251,25 @@ export const useFirestore = () => {
     }, [userId]);
 
     /**
+     * Find existing LPN by MPN (Consistency Check)
+     */
+    const findLPNByMPN = useCallback(async (mpn) => {
+        if (!userId) {
+            return { success: false, error: 'User not authenticated' };
+        }
+        
+        try {
+            const lpn = await findLPNForMPN(userId, mpn);
+            return { success: true, lpn };
+        } catch (err) {
+            const errorMsg = 'Failed to find existing LPN: ' + err.message;
+            setError(errorMsg);
+            return { success: false, error: errorMsg };
+        }
+    }, [userId]);
+
+
+    /**
      * Clear error
      */
     const clearError = useCallback(() => {
@@ -272,6 +291,7 @@ export const useFirestore = () => {
         saveSettings,
         loadSettings,
         doesMPNExist,
+        findLPNByMPN,
         clearError
     };
 };

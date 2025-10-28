@@ -238,3 +238,28 @@ export async function checkMPNExists(userId, mpn) {
     
     return !snapshot.empty;
 }
+
+/**
+ * Find existing LPN for a component with a given MPN
+ * Searches for any component matching the canonical MPN field that has an LPN assigned.
+ * This is the LPN Consistency Check.
+ */
+export async function findLPNForMPN(userId, mpn) {
+    const componentsRef = getUserComponentsRef(userId);
+    // Query for components matching the canonical MPN field that have an LPN set
+    const q = query(
+        componentsRef, 
+        where('Mfr. Part #', '==', mpn),
+        // Filter where Local_Part_Number field exists and is not null/empty string (implicitly handled by firestore)
+        where('Local_Part_Number', '!=', null) 
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+        // Return the LPN from the first match
+        return snapshot.docs[0].data().Local_Part_Number;
+    }
+    
+    return null;
+}

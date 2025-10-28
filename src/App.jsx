@@ -170,7 +170,7 @@ export default function App() {
         }
     }, [components]);
 
-    // Handle configuration save (unchanged)
+    // Handle configuration save
     const handleConfigSave = async (newConfig) => {
         setConfig(newConfig);
         setSyncParams(newConfig.kicadSyncParams);
@@ -185,7 +185,7 @@ export default function App() {
         }
     };
 
-    // Detect duplicates (unchanged)
+    // Detect duplicates
     const detectDuplicates = (newComponents) => {
         const duplicates = [];
         
@@ -210,8 +210,8 @@ export default function App() {
 
         return duplicates;
     };
-
-    // --- NEW CENTRAL HANDLER: Called by SetupSection after any resolution (AmbiguousQtyModal or Preview Submit) ---
+    
+    // CENTRAL HANDLER: Called by SetupSection after any resolution (AmbiguousQtyModal or Preview Submit)
     const handleBOMFileResolution = async (componentsToUpload) => {
         if (!componentsToUpload || componentsToUpload.length === 0) {
             toast.error('No components to submit after processing.');
@@ -235,7 +235,6 @@ export default function App() {
             return await processComponents(componentsToUpload);
         }
     };
-    // -------------------------------------------------------------------------------------------------------------
 
     // Handle BOM Submit (Used by SetupSection's preview submit button)
     const handleBOMSubmit = async (componentsToUpload) => {
@@ -244,7 +243,7 @@ export default function App() {
     };
 
 
-    // Process components after conflict resolution (unchanged)
+    // Process components after conflict resolution (unchanged logic)
     const handleResolveConflicts = async (resolutions) => {
         if (!pendingComponents) return;
 
@@ -295,45 +294,49 @@ export default function App() {
         return true;
     };
 
-    // Process and add components with auto-LPN (unchanged)
+    /**
+     * Process and add components with auto-LPN
+     */
     const processComponents = async (componentsToAdd) => {
         setIsProcessing(true);
 
         try {
-            // Add components to Firestore first
+            // Step 1: Add components to Firestore first
             const result = await addComponentsInBatch(componentsToAdd);
 
             if (!result.success) {
                 throw new Error(result.error || 'Failed to add components');
             }
 
-            // Auto-assign LPNs to components with MPN
+            // Step 2: AUTO-ASSIGN LPNs (Check and Assign/Reuse LPN)
             let lpnSuccess = 0;
             let lpnFailed = 0;
 
             for (const comp of componentsToAdd) {
                 const mpn = extractMPN(comp);
+                
+                // Only attempt LPN assignment if MPN exists
                 if (mpn) {
-                    // Wait a bit for Firestore to update
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    // Find the component in the updated list
-                    const addedComp = components.find(c => 
-                        c.ProjectName === comp.ProjectName && 
-                        c.Designator === comp.Designator &&
-                        extractMPN(c) === mpn
-                    );
+                    // Components in 'componentsToAdd' already have a temporary ID generated in bomParser.
+                    // We use this ID to update the document we just created in Firestore.
+                    const componentForLPN = { 
+                        id: comp.id, 
+                        'Mfr. Part #': mpn,
+                        // This comp object may contain other MPN fields, but 'Mfr. Part #' is the canonical one set 
+                        // before calling assignLPN for DB consistency check.
+                    };
 
-                    if (addedComp && !addedComp.Local_Part_Number) {
-                        const lpnResult = await assignLPN(addedComp);
-                        if (lpnResult.success) {
-                            lpnSuccess++;
-                        } else {
-                            lpnFailed++;
-                        }
+                    // Call assignLPN, which now handles the reuse check against the entire database
+                    const lpnResult = await assignLPN(componentForLPN);
+
+                    if (lpnResult.success) {
+                        lpnSuccess++;
+                    } else {
+                        lpnFailed++;
                     }
                 }
             }
+
 
             toast.success(`Added ${componentsToAdd.length} components${lpnSuccess > 0 ? `, assigned ${lpnSuccess} LPNs` : ''}`);
             
@@ -350,7 +353,8 @@ export default function App() {
         }
     };
 
-    // Handle KiCad file upload (unchanged)
+
+    // Handle KiCad file upload
     const handleKiCadUpload = async (file) => {
         if (!projectName.trim()) {
             setKicadError('Please enter a project name first');
@@ -369,7 +373,7 @@ export default function App() {
         }
     };
 
-    // Handle component edit (unchanged)
+    // Handle component edit
     const handleEditComponent = async (componentId, updatedData) => {
         const result = await updateExistingComponent(componentId, updatedData);
         if (result.success) {
@@ -379,7 +383,7 @@ export default function App() {
         }
     };
 
-    // Handle component delete (unchanged)
+    // Handle component delete
     const handleDeleteComponent = (componentId) => {
         const component = components.find(c => c.id === componentId);
         if (!component) return;
@@ -400,7 +404,7 @@ export default function App() {
         });
     };
 
-    // Handle project delete (unchanged)
+    // Handle project delete
     const handleDeleteProject = (projectName) => {
         const count = components.filter(c => c.ProjectName === projectName).length;
 
@@ -420,7 +424,7 @@ export default function App() {
         });
     };
 
-    // Handle clear library (unchanged)
+    // Handle clear library
     const handleClearLibrary = () => {
         if (components.length === 0) return;
 
@@ -442,7 +446,7 @@ export default function App() {
         });
     };
 
-    // Export library (unchanged)
+    // Export library
     const saveLibraryToFile = () => {
         if (components.length === 0) {
             toast.warning('No components to export');
@@ -477,7 +481,7 @@ export default function App() {
         }
     };
 
-    // Import library (unchanged)
+    // Import library (placeholder)
     const importLibrary = () => {
         toast.info('Import feature coming soon');
     };
@@ -553,7 +557,7 @@ export default function App() {
                                 projectName={projectName}
                                 setProjectName={setProjectName}
                                 onBOMSubmit={handleBOMSubmit}
-                                onBOMFileResolve={handleBOMFileResolution} // <-- NEW PROP
+                                onBOMFileResolve={handleBOMFileResolution}
                                 isProcessing={isProcessing}
                                 onKiCadUpload={handleKiCadUpload}
                                 isParsingKiCad={isParsingKiCad}
@@ -660,7 +664,7 @@ export default function App() {
 
             <AiModal
                 isModalOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                setIsModalOpen={setIsModalOpen}
                 modalContent={modalContent}
                 isLoadingAi={isLoadingAi}
             />
