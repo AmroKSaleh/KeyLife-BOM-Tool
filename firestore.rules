@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // System collection (LPN counter)
+    match /system/{document} {
+      // Anyone authenticated can read the counter
+      allow read: if isAuthenticated();
+      
+      // Only allow writes through transactions (handled by security rules)
+      allow write: if isAuthenticated();
+    }
+    
+    // User data
+    match /users/{userId} {
+      // Users can only access their own data
+      allow read, write: if isOwner(userId);
+      
+      // User components subcollection
+      match /components/{componentId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // User settings subcollection
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

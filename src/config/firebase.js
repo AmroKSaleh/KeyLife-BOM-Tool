@@ -12,8 +12,11 @@ import {
     signOut,
     onAuthStateChanged,
     sendPasswordResetEmail,
-    updateProfile
+    updateProfile,
+    GoogleAuthProvider,
+    signInWithPopup
 } from 'firebase/auth';
+
 
 // Firebase configuration
 const firebaseConfig = {
@@ -33,6 +36,23 @@ export const db = getFirestore(app);
 
 // Initialize Auth
 export const auth = getAuth(app);
+
+// Google Auth Provider
+const googleProvider = new GoogleAuthProvider();
+
+/**
+ * Sign in with Google
+ * @returns {Promise<object>} User object
+ */
+export async function signInWithGoogle() {
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    
+    return {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        displayName: userCredential.user.displayName || userCredential.user.email
+    };
+}
 
 /**
  * Sign up with email and password

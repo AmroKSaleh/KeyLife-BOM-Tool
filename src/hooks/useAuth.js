@@ -9,14 +9,17 @@ import {
     signIn, 
     logOut, 
     resetPassword,
+    signInWithGoogle,
     getCurrentUser,
     subscribeToAuthChanges
 } from '../config/firebase.js';
+import { useToastContext } from '../context/ToastContext.jsx';
 
 export const useAuth = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const toast = useToastContext();
 
     // Subscribe to auth state changes
     useEffect(() => {
@@ -27,10 +30,10 @@ export const useAuth = () => {
 
         return unsubscribe;
     }, []);
-
+    
     /**
      * Register a new user
-     */
+    */
     const register = async (email, password, displayName) => {
         setError('');
         setLoading(true);
@@ -69,13 +72,34 @@ export const useAuth = () => {
     };
 
     /**
-     * Logout current user
+     * Login with Google
      */
-    const logout = async () => {
-        setError('');
+    const loginWithGoogle = async () => {
         setLoading(true);
-        
+        setError('');
         try {
+            const userData = await signInWithGoogle();
+            setUser(userData);
+            toast.success(`Welcome, ${userData.displayName}!`);
+            return { success: true, user: userData };
+        } catch (err) {
+            const errorMsg = getErrorMessage(err);
+            setError(errorMsg);
+            toast.error(errorMsg);
+            return { success: false, error: errorMsg };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Logout current user
+    */
+   const logout = async () => {
+       setError('');
+       setLoading(true);
+       
+       try {
             await logOut();
             setUser(null);
             return { success: true };
@@ -107,6 +131,7 @@ export const useAuth = () => {
         }
     };
 
+
     /**
      * Clear error message
      */
@@ -120,6 +145,7 @@ export const useAuth = () => {
         error,
         register,
         login,
+        loginWithGoogle,
         logout,
         sendPasswordReset,
         clearError,
@@ -144,6 +170,8 @@ function getErrorMessage(error) {
         'auth/invalid-credential': 'Invalid email or password.',
         'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
         'auth/network-request-failed': 'Network error. Please check your connection.',
+        'auth/popup-closed-by-user': 'Sign-in cancelled.',
+        'auth/cancelled-popup-request': 'Only one popup allowed at a time.',
     };
 
     return errorMessages[errorCode] || 'An error occurred. Please try again.';

@@ -19,7 +19,9 @@ import {
     getAllComponents,
     checkMPNExists
 } from '../services/firestoreService.js';
-import { getCurrentUserId } from '../config/firebase.js';
+
+import { getCurrentUserId, auth } from '../config/firebase.js';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export const useFirestore = () => {
     const [components, setComponents] = useState([]);
@@ -28,14 +30,22 @@ export const useFirestore = () => {
     const [userId, setUserId] = useState(null);
 
     // Get current user ID
+    // Get current user ID and subscribe to auth changes
     useEffect(() => {
-        const uid = getCurrentUserId();
-        if (uid) {
-            setUserId(uid);
-        } else {
-            setLoading(false);
-        }
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setUserId(user.uid);
+                console.log('Firestore: User authenticated:', user.uid);
+            } else {
+                setUserId(null);
+                setLoading(false);
+                console.log('Firestore: No user');
+            }
+        });
+
+        return unsubscribe;
     }, []);
+
 
     // Subscribe to components when userId is available
     useEffect(() => {
