@@ -1,13 +1,10 @@
-# .github/workflows/ci.yml
-# This workflow runs tests and builds the project on pushes/PRs to the main branch.
-
-name: Build and Test CI
+name: CI Checks (Test & Build)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build_and_test:
@@ -15,29 +12,46 @@ jobs:
 
     strategy:
       matrix:
-        # Use LTS Node.js versions
-        node-version: [18.x, 20.x]
+        # Use the Node.js version specified in your package.json engines field
+        node-version: [18.x] # Keep consistent with your project requirement
 
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4 # Use latest version
 
-    # Sets up Node.js environment
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm' # Enable caching for npm dependencies
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4 # Use latest version
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm' # Add npm caching
 
-    # Installs dependencies using 'npm ci' for faster, reliable installs
-    - name: Install dependencies
-      run: npm ci
+      - name: Install Dependencies
+        run: npm ci # Use ci for faster, deterministic installs in CI
 
-    # Runs Vitest tests defined in your package.json ('npm run test')
-    - name: Run tests
-      run: npm run test --if-present
+      - name: Run Tests
+        run: npm run test -- --run # Add --run to execute tests once, not watch mode
+        env:
+          # --- ADD THIS DUMMY KEY ---
+          # Provide a non-empty placeholder for SDK initialization.
+          # The actual value doesn't matter since tests mock Firebase calls.
+          VITE_FIREBASE_API_KEY: "dummy-test-key-for-ci"
+          # Add other VITE_ variables if your firebase.js config relies on them
+          # even with mocks (usually apiKey is sufficient for init)
+          # VITE_FIREBASE_PROJECT_ID: "dummy-project"
+          # VITE_FIREBASE_AUTH_DOMAIN: "dummy-domain"
+          # ... etc ...
 
-    # Builds the project using Vite ('npm run build')
-    - name: Build project
-      run: npm run build --if-present
+      - name: Build Project
+        run: npm run build --if-present
+        env:
+          # Provide dummy keys for build step as well, if needed
+          VITE_FIREBASE_API_KEY: "dummy-build-key-for-ci"
+          # ... other VITE_ variables ...
+
+      # Optional: Upload build artifact if needed for deployment later
+      # - name: Archive production artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: build-output
+      #     path: dist/
+
