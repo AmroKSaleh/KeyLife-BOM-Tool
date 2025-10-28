@@ -1,0 +1,56 @@
+# .github/workflows/deploy.yml
+# This workflow manually deploys the build output to an FTP server.
+
+name: Manual FTP Deployment
+
+# Allows you to run this workflow manually from the Actions tab
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Sets up Node.js environment (use a specific LTS version for consistency)
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm' # Enable caching for npm dependencies
+
+    # Installs dependencies
+    - name: Install dependencies
+      run: npm ci
+
+    # Runs Vitest tests defined in your package.json ('npm run test')
+    - name: Run tests
+      run: npm run test --if-present
+
+    # Builds the project
+    - name: Build project
+      run: npm run build --if-present
+
+    # Deploys the build output (from the 'dist' folder) via FTP
+    - name: Deploy via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4 # Use latest version
+      with:
+        # Required: FTP server address from GitHub secrets
+        server: ${{ secrets.FTP_SERVER }}
+        # Required: FTP username from GitHub secrets
+        username: ${{ secrets.FTP_USERNAME }}
+        # Required: FTP password from GitHub secrets
+        password: ${{ secrets.FTP_PASSWORD }}
+        # Optional: Port (defaults to 21)
+        # port: 21
+        # Directory on the server to deploy to (e.g., /public_html/, /httpdocs/)
+        # Adjust this path according to your server setup
+        server-dir: /
+        # The local directory to upload from (Vite builds to 'dist')
+        local-dir: ./dist/
+        # Optional: Delete existing files on server before uploading (use with caution!)
+        # dangerous-clean-slate: true
