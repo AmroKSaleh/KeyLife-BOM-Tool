@@ -1,9 +1,11 @@
 /**
  * @file DataTable.jsx
- * @description Enhanced data table with inline editing, delete, KiCad integration, and management features
+ * @description Enhanced data table with inline editing, delete, KiCad integration, LPN management
  */
 
 import { useMemo, useState } from 'react';
+import { useLPN } from '../hooks/useLPN.js';
+import LPNButton from './LPNButton.jsx';
 
 export default function DataTable({ 
     components, 
@@ -30,6 +32,8 @@ export default function DataTable({
     const [editedData, setEditedData] = useState({});
     const [copiedId, setCopiedId] = useState(null);
 
+    const { canEditField, isFieldLocked } = useLPN();
+
     const projectNames = useMemo(() => 
         [...new Set(components.map(c => c.ProjectName))].sort(),
         [components]
@@ -54,7 +58,6 @@ export default function DataTable({
             filtered = filtered.filter(c => c.ProjectName === selectedProject);
         }
 
-        // Type filter
         if (selectedTypes.length > 0) {
             filtered = filtered.filter(comp => {
                 const designator = comp.Designator || comp.Reference || '';
@@ -108,6 +111,10 @@ export default function DataTable({
             await importLibrary(file);
             event.target.value = '';
         }
+    };
+
+    const isFieldDisabled = (fieldName, component) => {
+        return isFieldLocked(fieldName, component);
     };
 
     return (
@@ -243,6 +250,9 @@ export default function DataTable({
                                 </th>
                             ))}
                             <th scope="col" className="px-6 py-3 text-center whitespace-nowrap">
+                                LPN
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-center whitespace-nowrap">
                                 Actions
                             </th>
                         </tr>
@@ -253,20 +263,52 @@ export default function DataTable({
                                 key={component.id} 
                                 className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors"
                             >
-                                {headers.map((header) => (
-                                    <td key={header} className="px-6 py-4 whitespace-nowrap">
-                                        {editingId === component.id ? (
-                                            <input
-                                                type="text"
-                                                value={editedData[header] || ''}
-                                                onChange={(e) => handleFieldChange(header, e.target.value)}
-                                                className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-keylife-accent"
-                                            />
-                                        ) : (
-                                            component[header] || '-'
-                                        )}
-                                    </td>
-                                ))}
+                                {headers.map((header) => {
+                                    const isLocked = isFieldDisabled(header, component);
+                                    
+                                    return (
+                                        <td key={header} className="px-6 py-4 whitespace-nowrap">
+                                            {editingId === component.id ? (
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={editedData[header] || ''}
+                                                        onChange={(e) => handleFieldChange(header, e.target.value)}
+                                                        disabled={isLocked}
+                                                        className={`w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-keylife-accent ${
+                                                            isLocked ? 'opacity-50 cursor-not-allowed' : ''
+                                                        }`}
+                                                        title={isLocked ? 'Field locked: MPN cannot be changed after LPN assignment' : ''}
+                                                    />
+                                                    {isLocked && (
+                                                        <svg className="w-4 h-4 text-yellow-500 absolute right-2 top-1/2 -translate-y-1/2" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className={isLocked ? 'flex items-center gap-2' : ''}>
+                                                    {component[header] || '-'}
+                                                    {isLocked && (
+                                                        <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" title="Locked field">
+                                                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </td>
+                                    );
+                                })}
+                                
+                                {/* LPN Column */}
+                                <td className="px-6 py-4 text-center">
+                                    <LPNButton 
+                                        component={component}
+                                        disabled={editingId === component.id}
+                                    />
+                                </td>
+
+                                {/* Actions Column */}
                                 <td className="px-6 py-4">
                                     {editingId === component.id ? (
                                         <div className="flex gap-2 justify-center">
@@ -318,26 +360,22 @@ export default function DataTable({
                                                 </svg>
                                                 Del
                                             </button>
-                                            {/* KiCad Copy Button - Only show if schematic exists for this project */}
                                             {kicadSchematics[component.ProjectName] && (
                                                 <button
                                                     onClick={async () => {
-                                                        // Call the function from the hook
                                                         const success = await onCopyKiCadSymbol(component);
                                                         if (success) {
-                                                            // Show visual feedback on success
                                                             setCopiedId(component.id);
-                                                            // Clear the "Copied!" message after 2 seconds
-                                                            setTimeout(() => setCopiedId(null), 2000); 
+                                                            setTimeout(() => setCopiedId(null), 2000);
                                                         }
                                                     }}
-                                                    className={`font-medium py-1 px-3 rounded-lg text-sm transition duration-200 inline-flex items-center gap-1 mt-2 md:mt-0 ${
+                                                    className={`font-medium py-1 px-3 rounded-lg text-sm transition duration-200 inline-flex items-center gap-1 ${
                                                         copiedId === component.id 
                                                             ? 'bg-green-600 text-white' 
                                                             : 'bg-gray-700 hover:bg-keylife-accent/80 text-gray-300 hover:text-white'
                                                     }`}
                                                     title="Copy Raw KiCad Symbol Data to Clipboard"
-                                                    disabled={copiedId === component.id} // Disable while showing 'Copied!'
+                                                    disabled={copiedId === component.id}
                                                 >
                                                     {copiedId === component.id ? (
                                                         <>
@@ -352,7 +390,7 @@ export default function DataTable({
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2" />
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5l4 4m0 0l-4 4m4-4H9" />
                                                             </svg>
-                                                            Copy KiCad
+                                                            KiCad
                                                         </>
                                                     )}
                                                 </button>
