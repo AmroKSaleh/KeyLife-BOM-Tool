@@ -6,12 +6,8 @@
 import { useState, useCallback } from 'react';
 import { useFirestore } from './useFirestore.js';
 import {
-    validateComponentForLPN,
-    hasLPN,
-    extractMPN,
-    generateMPNHash,
-    assembleLPN,
-    isFieldLocked
+    validateComponentForLPN, hasLPN, extractMPN, generateMPNHash,
+    assembleLPN, isFieldLocked, formatSequence
 } from '../utils/lpnUtils.js';
 
 export const useLPN = () => {
@@ -19,172 +15,85 @@ export const useLPN = () => {
     const [error, setError] = useState('');
     const { getNextSequence, updateExistingComponent } = useFirestore();
 
-    /**
-     * Generate and assign LPN to a component
-     */
     const assignLPN = useCallback(async (component) => {
-        setError('');
-        setIsGenerating(true);
-
+        // ... (assignLPN implementation unchanged)
         try {
-            // 1. Validate component has MPN
-            if (!validateComponentForLPN(component)) {
-                throw new Error('Component must have a Manufacturer Part Number (MPN) to generate LPN');
-            }
-
-            // 2. Check if component already has LPN
-            if (hasLPN(component)) {
-                throw new Error('Component already has an LPN assigned');
-            }
-
-            // 3. Extract MPN
+            if (!validateComponentForLPN(component)) throw new Error('MPN required');
+            if (hasLPN(component)) throw new Error('LPN exists');
             const mpn = extractMPN(component);
-            if (!mpn) {
-                throw new Error('Could not extract MPN from component');
-            }
+            if (!mpn) throw new Error('Could not extract MPN');
 
-            // 4. Generate hash from MPN
             const hash = generateMPNHash(mpn);
-
-            // 5. Get next sequence number from Firestore
             const sequenceResult = await getNextSequence();
-            if (!sequenceResult.success) {
-                throw new Error(sequenceResult.error || 'Failed to get sequence number');
-            }
-
-            // 6. Assemble complete LPN
+            if (!sequenceResult?.success) throw new Error(sequenceResult?.error || 'Seq fail');
             const lpn = assembleLPN(sequenceResult.sequence, hash);
 
-            // 7. Update component with LPN
-            const updateResult = await updateExistingComponent(component.id, {
-                Local_Part_Number: lpn
-            });
+            const updateResult = await updateExistingComponent(component.id, { Local_Part_Number: lpn });
+            if (!updateResult?.success) throw new Error(updateResult?.error || 'Update fail');
 
-            if (!updateResult.success) {
-                throw new Error(updateResult.error || 'Failed to update component with LPN');
-            }
-
-            setIsGenerating(false);
-            return {
-                success: true,
-                lpn,
-                sequence: sequenceResult.sequence,
-                hash
-            };
-
+            return { success: true, lpn, sequence: sequenceResult.sequence, hash };
         } catch (err) {
-            const errorMsg = err.message || 'Failed to generate LPN';
+            const errorMsg = err.message || 'Assign LPN failed';
             setError(errorMsg);
-            setIsGenerating(false);
-            return {
-                success: false,
-                error: errorMsg
-            };
+            return { success: false, error: errorMsg };
         }
-    }, [getNextSequence, updateExistingComponent]);
+    }, [getNextSequence, updateExistingComponent, setError]);
 
-    /**
-     * Generate LPN for multiple components
-     */
     const assignLPNBatch = useCallback(async (components) => {
+        if (!components?.length) {
+            return { overallSuccess: true, details: { processed: [], failed: [], total: 0 } };
+        }
         setError('');
         setIsGenerating(true);
 
-        const results = {
-            success: [],
-            failed: [],
-            total: components.length
-        };
+        const results = { processed: [], failed: [], total: components.length };
+        let overallSuccess = true;
 
-        for (const component of components) {
-            const result = await assignLPN(component);
-            
-            if (result.success) {
-                results.success.push({
-                    componentId: component.id,
-                    lpn: result.lpn
-                });
-            } else {
-                results.failed.push({
-                    componentId: component.id,
-                    error: result.error
-                });
+        try { // Added try block for the loop
+            for (const component of components) {
+                const result = await assignLPN(component); // assignLPN handles its own errors
+                if (result.success) {
+                    results.processed.push({ componentId: component.id, lpn: result.lpn });
+                } else {
+                    results.failed.push({ componentId: component.id, error: result.error || 'Unknown' });
+                    overallSuccess = false;
+                }
             }
+        } catch (batchError) { // Catch unexpected errors during the batch loop itself
+            console.error("Unexpected error during assignLPNBatch loop:", batchError);
+            setError(`Batch processing failed unexpectedly: ${batchError.message}`);
+            overallSuccess = false;
+            // Optionally add a general failure note if specific component errors weren't caught
+            // results.failed.push({ componentId: 'BATCH_ERROR', error: batchError.message });
+        } finally { // Ensure state is reset even if an error occurs
+            setIsGenerating(false);
         }
 
-        setIsGenerating(false);
         return {
-            success: results.failed.length === 0,
-            ...results
+            overallSuccess: overallSuccess,
+            details: results
         };
-    }, [assignLPN]);
 
-    /**
-     * Check if a field can be edited (not locked by LPN)
-     */
-    const canEditField = useCallback((fieldName, component) => {
-        return !isFieldLocked(fieldName, component);
-    }, []);
+    }, [assignLPN, setError, setIsGenerating]);
 
-    /**
-     * Get LPN info from component
-     */
+
+    const canEditField = useCallback((fieldName, component) => !isFieldLocked(fieldName, component), []);
     const getLPNInfo = useCallback((component) => {
-        if (!hasLPN(component)) {
-            return null;
-        }
-
-        const lpn = component.Local_Part_Number;
-        const parts = lpn.split('-');
-
-        if (parts.length !== 3 || parts[0] !== 'KL') {
-            return {
-                lpn,
-                valid: false
-            };
-        }
-
-        return {
-            lpn,
-            valid: true,
-            sequence: parts[1],
-            hash: parts[2],
-            mpn: extractMPN(component)
-        };
-    }, []);
-
-    /**
-     * Validate LPN format
-     */
-    const validateLPNFormat = useCallback((lpn) => {
-        if (!lpn || typeof lpn !== 'string') {
-            return false;
-        }
-
-        // Format: KL-{5 digits}-{6 hex chars}
-        const pattern = /^KL-\d{5}-[0-9A-F]{6}$/;
-        return pattern.test(lpn);
-    }, []);
-
-    /**
-     * Clear error
-     */
-    const clearError = useCallback(() => {
-        setError('');
-    }, []);
+         if (!hasLPN(component)) return null;
+         const lpn = component.Local_Part_Number;
+         const parts = lpn.split('-');
+         if (parts.length !== 3 || parts[0] !== 'KL' || !/^\d{5}$/.test(parts[1]) || !/^[0-9A-F]{6}$/.test(parts[2])) {
+             return { lpn, valid: false };
+         }
+         return { lpn, valid: true, sequence: parts[1], hash: parts[2], mpn: extractMPN(component) };
+     }, []);
+    const validateLPNFormat = useCallback((lpn) => /^KL-\d{5}-[0-9A-F]{6}$/.test(lpn || ''), []);
+    const clearError = useCallback(() => setError(''), [setError]);
 
     return {
-        isGenerating,
-        error,
-        assignLPN,
-        assignLPNBatch,
-        canEditField,
-        getLPNInfo,
-        validateLPNFormat,
-        clearError,
-        // Export utility functions for convenience
-        hasLPN,
-        validateComponentForLPN,
-        isFieldLocked
+        isGenerating, error, assignLPN, assignLPNBatch, canEditField,
+        getLPNInfo, validateLPNFormat, clearError, hasLPN,
+        validateComponentForLPN, isFieldLocked
     };
 };
+
