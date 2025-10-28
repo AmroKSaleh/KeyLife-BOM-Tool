@@ -5,11 +5,13 @@
 
 import { useState } from 'react';
 import { processBOMFile } from '../utils/bomParser.js';
+import AmbiguousQtyModal from './AmbiguousQtyModal.jsx';
 
 export default function SetupSection({ 
     projectName, 
     setProjectName, 
     onBOMSubmit,
+    onBOMFileResolve, // <-- PROP for handling final component list after any resolution
     isProcessing,
     onKiCadUpload,
     isParsingKiCad,
@@ -22,6 +24,10 @@ export default function SetupSection({
     const [previewData, setPreviewData] = useState(null);
     const [isParsing, setIsParsing] = useState(false);
     const [parseError, setParseError] = useState('');
+    
+    // --- STATE for Quantity Ambiguity Management ---
+    const [ambiguousData, setAmbiguousData] = useState(null); 
+    // ---------------------------------------------------
 
     // Handle BOM file selection and preview
     const handleBOMFileSelect = async (event) => {
@@ -37,27 +43,41 @@ export default function SetupSection({
         setBomFile(file);
         setParseError('');
         setIsParsing(true);
+        setAmbiguousData(null); // Reset ambiguity check
 
         try {
-            // Parse file for preview
-            const { components, headers, count } = await processBOMFile(
+            // Parse file for preview. Now returns ambiguousComponents
+            const { components, ambiguousComponents, headers, count } = await processBOMFile(
                 file,
                 projectName.trim(),
                 config
             );
 
-            if (components.length === 0) {
+            if (components.length + ambiguousComponents.length === 0) {
                 throw new Error('No components found in file');
             }
 
-            // Show preview
+            // --- AMBIGUITY CHECK ---
+            if (ambiguousComponents.length > 0) {
+                // If ambiguous components exist, set data to open the modal for resolution
+                setAmbiguousData({
+                    fileName: file.name,
+                    components: components, // Non-ambiguous components
+                    ambiguous: ambiguousComponents, // Ambiguous components
+                    headers: headers,
+                });
+                return;
+            }
+            // -----------------------
+
+            // No ambiguity, proceed to regular preview
             setPreviewData({
                 fileName: file.name,
                 count,
                 headers,
                 components: components.slice(0, 5), // Preview first 5
                 totalComponents: components.length,
-                allComponents: components
+                allComponents: components // Components are already normalized here
             });
 
         } catch (err) {
@@ -69,8 +89,58 @@ export default function SetupSection({
             event.target.value = '';
         }
     };
+    
+    // --- Handle resolution from AmbiguousQtyModal ---
+    const handleAmbiguousResolution = async (resolvedComponents) => {
+        if (!ambiguousData) return;
+        
+        // 1. Combine resolved components with the non-ambiguous components from the original file
+        const allComponents = [...ambiguousData.components, ...resolvedComponents];
+        
+        setAmbiguousData(null); // Close the ambiguity modal
 
-    // Handle KiCad file selection
+        if (allComponents.length === 0) {
+            setParseError(`All components were skipped during conflict resolution.`);
+            handleCancel();
+            return;
+        }
+
+        // 2. Pass the consolidated list to the next processing step (duplicate check/submission)
+        const success = await onBOMFileResolve(allComponents);
+        
+        if (success) {
+            // If submission (including duplicate resolution) was successful, clear form
+            setBomFile(null);
+            setPreviewData(null);
+            setParseError('');
+        }
+    };
+    // ----------------------------------------------------
+
+    // Submit BOM to database - now calls the App.jsx handler (onBOMSubmit)
+    const handleSubmit = async () => {
+        if (!previewData) return;
+        
+        // This submits the final component list from the preview state (no ambiguity found previously)
+        const success = await onBOMSubmit(previewData.allComponents);
+        
+        if (success) {
+            // Clear form
+            setBomFile(null);
+            setPreviewData(null);
+            setParseError('');
+        }
+    };
+
+    // Cancel and clear
+    const handleCancel = () => {
+        setBomFile(null);
+        setPreviewData(null);
+        setParseError('');
+        setAmbiguousData(null); // Clear ambiguity data too
+    };
+
+    // Handle KiCad file upload is unchanged
     const handleKiCadFileUpload = async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -90,27 +160,6 @@ export default function SetupSection({
         setKicadFile(file);
         await onKiCadUpload(file);
         event.target.value = '';
-    };
-
-    // Submit BOM to database
-    const handleSubmit = async () => {
-        if (!previewData) return;
-        
-        const success = await onBOMSubmit(previewData.allComponents);
-        
-        if (success) {
-            // Clear form
-            setBomFile(null);
-            setPreviewData(null);
-            setParseError('');
-        }
-    };
-
-    // Cancel and clear
-    const handleCancel = () => {
-        setBomFile(null);
-        setPreviewData(null);
-        setParseError('');
     };
 
     const hasSchematic = projectName && kicadSchematics[projectName];
@@ -375,6 +424,17 @@ export default function SetupSection({
                     </div>
                 </div>
             </div>
+
+            {/* Render AmbiguousQtyModal */}
+            {ambiguousData && (
+                <AmbiguousQtyModal
+                    isOpen={!!ambiguousData}
+                    onClose={handleCancel}
+                    ambiguousComponents={ambiguousData.ambiguous}
+                    projectName={projectName}
+                    onResolve={handleAmbiguousResolution} // Pass the resolution handler
+                />
+            )}
         </div>
     );
 }

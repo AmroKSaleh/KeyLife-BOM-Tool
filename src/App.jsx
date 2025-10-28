@@ -17,6 +17,7 @@ import UnmatchedComponentsModal from './components/UnmatchedComponentsModal.jsx'
 import UploadStatsModal from './components/UploadStatsModal.jsx';
 import ConfirmModal from './components/ConfirmModal.jsx';
 import LoadingSpinner from './components/LoadingSpinner.jsx';
+import AmbiguousQtyModal from './components/AmbiguousQtyModal.jsx'; 
 
 export default function App() {
     const toast = useToastContext();
@@ -169,7 +170,7 @@ export default function App() {
         }
     }, [components]);
 
-    // Handle configuration save
+    // Handle configuration save (unchanged)
     const handleConfigSave = async (newConfig) => {
         setConfig(newConfig);
         setSyncParams(newConfig.kicadSyncParams);
@@ -184,7 +185,7 @@ export default function App() {
         }
     };
 
-    // Detect duplicates
+    // Detect duplicates (unchanged)
     const detectDuplicates = (newComponents) => {
         const duplicates = [];
         
@@ -210,13 +211,13 @@ export default function App() {
         return duplicates;
     };
 
-    // Handle BOM Submit with duplicate detection
-    const handleBOMSubmit = async (componentsToUpload) => {
+    // --- NEW CENTRAL HANDLER: Called by SetupSection after any resolution (AmbiguousQtyModal or Preview Submit) ---
+    const handleBOMFileResolution = async (componentsToUpload) => {
         if (!componentsToUpload || componentsToUpload.length === 0) {
-            toast.error('No components to submit');
+            toast.error('No components to submit after processing.');
             return false;
         }
-
+        
         // Detect duplicates
         const duplicates = detectDuplicates(componentsToUpload);
 
@@ -228,14 +229,22 @@ export default function App() {
                 newComponents: componentsToUpload.length - duplicates.length,
                 duplicates: duplicates
             });
-            return true; // Don't close preview yet
+            return true; // Return true to keep SetupSection workflow active (don't reset form)
         } else {
-            // No duplicates, process immediately
+            // No conflicts, process immediately
             return await processComponents(componentsToUpload);
         }
     };
+    // -------------------------------------------------------------------------------------------------------------
 
-    // Process components after conflict resolution
+    // Handle BOM Submit (Used by SetupSection's preview submit button)
+    const handleBOMSubmit = async (componentsToUpload) => {
+        // This function is the entry point for submissions WITHOUT quantity ambiguity issues (i.e., straight from preview).
+        return handleBOMFileResolution(componentsToUpload);
+    };
+
+
+    // Process components after conflict resolution (unchanged)
     const handleResolveConflicts = async (resolutions) => {
         if (!pendingComponents) return;
 
@@ -286,7 +295,7 @@ export default function App() {
         return true;
     };
 
-    // Process and add components with auto-LPN
+    // Process and add components with auto-LPN (unchanged)
     const processComponents = async (componentsToAdd) => {
         setIsProcessing(true);
 
@@ -341,7 +350,7 @@ export default function App() {
         }
     };
 
-    // Handle KiCad file upload
+    // Handle KiCad file upload (unchanged)
     const handleKiCadUpload = async (file) => {
         if (!projectName.trim()) {
             setKicadError('Please enter a project name first');
@@ -360,7 +369,7 @@ export default function App() {
         }
     };
 
-    // Handle component edit
+    // Handle component edit (unchanged)
     const handleEditComponent = async (componentId, updatedData) => {
         const result = await updateExistingComponent(componentId, updatedData);
         if (result.success) {
@@ -370,7 +379,7 @@ export default function App() {
         }
     };
 
-    // Handle component delete
+    // Handle component delete (unchanged)
     const handleDeleteComponent = (componentId) => {
         const component = components.find(c => c.id === componentId);
         if (!component) return;
@@ -391,7 +400,7 @@ export default function App() {
         });
     };
 
-    // Handle project delete
+    // Handle project delete (unchanged)
     const handleDeleteProject = (projectName) => {
         const count = components.filter(c => c.ProjectName === projectName).length;
 
@@ -411,7 +420,7 @@ export default function App() {
         });
     };
 
-    // Handle clear library
+    // Handle clear library (unchanged)
     const handleClearLibrary = () => {
         if (components.length === 0) return;
 
@@ -433,7 +442,7 @@ export default function App() {
         });
     };
 
-    // Export library
+    // Export library (unchanged)
     const saveLibraryToFile = () => {
         if (components.length === 0) {
             toast.warning('No components to export');
@@ -468,7 +477,7 @@ export default function App() {
         }
     };
 
-    // Import library (placeholder)
+    // Import library (unchanged)
     const importLibrary = () => {
         toast.info('Import feature coming soon');
     };
@@ -544,6 +553,7 @@ export default function App() {
                                 projectName={projectName}
                                 setProjectName={setProjectName}
                                 onBOMSubmit={handleBOMSubmit}
+                                onBOMFileResolve={handleBOMFileResolution} // <-- NEW PROP
                                 isProcessing={isProcessing}
                                 onKiCadUpload={handleKiCadUpload}
                                 isParsingKiCad={isParsingKiCad}
@@ -650,7 +660,7 @@ export default function App() {
 
             <AiModal
                 isModalOpen={isModalOpen}
-                setIsModalOpen={setIsModalOpen}
+                onClose={() => setIsModalOpen(false)}
                 modalContent={modalContent}
                 isLoadingAi={isLoadingAi}
             />
