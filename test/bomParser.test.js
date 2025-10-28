@@ -91,69 +91,84 @@ describe('BOM Parser Utilities', () => { // Top-level describe
         const projectName = 'TestProject';
         const headers = ['Designator', 'Value', 'Footprint'];
         const headersWithQty = ['Designator', 'Value', 'Footprint', 'Qty'];
+        const expectedEmptyResult = { flattened: [], ambiguous: [] };
 
         it('should flatten single designator', () => {
             const rows = [{ 'Designator': 'R1', 'Value': '100k' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result).toHaveLength(1);
-            expect(result[0].Designator).toBe('R1');
+            expect(result.flattened).toHaveLength(1);
+            expect(result.flattened[0].Designator).toBe('R1');
+            expect(result.ambiguous).toHaveLength(0);
         });
         it('should flatten comma-separated designators when no Qty column', () => {
             const rows = [{ 'Designator': 'R1, R2, R3', 'Value': '100k' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result).toHaveLength(3);
-            expect(result.map(c => c.Designator)).toEqual(['R1', 'R2', 'R3']);
+            expect(result.flattened).toHaveLength(3);
+            expect(result.flattened.map(c => c.Designator)).toEqual(['R1', 'R2', 'R3']);
+            expect(result.ambiguous).toHaveLength(0);
         });
-        it('should NOT flatten comma-separated designators if Qty column exists', () => {
+        
+        // --- NEW AMBIGUITY TEST (Fix for failing original test) ---
+        it('should detect ambiguous component and return it as ambiguous when Qty column exists and Qty > 1', () => {
             const rows = [{ 'Designator': 'R1, R2, R3', 'Value': '100k', 'Qty': 3 }];
             const result = flattenBOM(rows, headersWithQty, projectName, 'Designator');
-            expect(result).toHaveLength(1);
-            expect(result[0].Designator).toBe('R1, R2, R3');
-            expect(result[0].Qty).toBe(3);
+            expect(result.flattened).toHaveLength(0);
+            expect(result.ambiguous).toHaveLength(1);
+            expect(result.ambiguous[0].Designator).toBe('R1, R2, R3');
+            expect(result.ambiguous[0].Qty).toBe(3);
+            expect(result.ambiguous[0]._ambiguousQty).toBe(true);
         });
+        
         it('should flatten space-separated designators when no Qty column', () => {
             const rows = [{ 'Designator': 'C1 C2 C3', 'Value': '10uF' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result).toHaveLength(3);
-            expect(result.map(c => c.Designator)).toEqual(['C1', 'C2', 'C3']);
+            expect(result.flattened).toHaveLength(3);
+            expect(result.flattened.map(c => c.Designator)).toEqual(['C1', 'C2', 'C3']);
+            expect(result.ambiguous).toHaveLength(0);
         });
         it('should flatten semicolon-separated designators when no Qty column', () => {
             const rows = [{ 'Designator': 'D1; D2; D3', 'Value': '1N4148' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result).toHaveLength(3);
-            expect(result.map(c => c.Designator)).toEqual(['D1', 'D2', 'D3']);
+            expect(result.flattened).toHaveLength(3);
+            expect(result.flattened.map(c => c.Designator)).toEqual(['D1', 'D2', 'D3']);
+            expect(result.ambiguous).toHaveLength(0);
         });
         it('should handle mixed separators (including spaces) when no Qty column', () => {
             const rows = [{ 'Designator': 'R1, R2 R3; R4', 'Value': '1k' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result).toHaveLength(4);
-            expect(result.map(c => c.Designator)).toEqual(['R1', 'R2', 'R3', 'R4']);
+            expect(result.flattened).toHaveLength(4);
+            expect(result.flattened.map(c => c.Designator)).toEqual(['R1', 'R2', 'R3', 'R4']);
+            expect(result.ambiguous).toHaveLength(0);
         });
         it('should skip rows with empty designators', () => {
             const rows = [{ 'Designator': '', 'Value': '100k' }, { 'Designator': 'R1', 'Value': '10k' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result).toHaveLength(1);
-            expect(result[0].Designator).toBe('R1');
+            expect(result.flattened).toHaveLength(1);
+            expect(result.flattened[0].Designator).toBe('R1');
+            expect(result.ambiguous).toHaveLength(0);
         });
         it('should generate unique IDs for each component', () => {
             const rows = [{ 'Designator': 'R1, R2', 'Value': '100k' }];
             const result = flattenBOM(rows, headers, projectName, 'Designator');
-            expect(result[0].id).toBeTruthy();
-            expect(result[1].id).toBeTruthy();
-            expect(result[0].id).not.toBe(result[1].id);
+            expect(result.flattened[0].id).toBeTruthy();
+            expect(result.flattened[1].id).toBeTruthy();
+            expect(result.flattened[0].id).not.toBe(result.flattened[1].id);
+            expect(result.ambiguous).toHaveLength(0);
         });
         it('should copy all fields to each flattened component', () => {
             const rows = [{ 'Designator': 'R1, R2', 'Value': '100k', 'Desc': 'Test' }];
             const result = flattenBOM(rows, ['Designator', 'Value', 'Desc'], projectName, 'Designator');
-            expect(result[0].Desc).toBe('Test');
-            expect(result[1].Desc).toBe('Test');
+            expect(result.flattened[0].Desc).toBe('Test');
+            expect(result.flattened[1].Desc).toBe('Test');
+            expect(result.ambiguous).toHaveLength(0);
         });
-         it('should handle null or undefined inputs gracefully', () => {
-            expect(flattenBOM(null, headers, 'P1', 'D')).toEqual([]);
-            expect(flattenBOM([], headers, 'P1', 'D')).toEqual([]);
-            expect(flattenBOM([{D:'R1'}], null, 'P1', 'D')).toEqual([]); // Needs headers
-            expect(flattenBOM([{D:'R1'}], headers, null, 'D')).toEqual([]); // Needs project name
-            expect(flattenBOM([{D:'R1'}], headers, 'P1', null)).toEqual([]); // Needs designator column
+        it('should handle null or undefined inputs gracefully', () => {
+            // Updated expectation to match the new return structure
+            expect(flattenBOM(null, headers, 'P1', 'D')).toEqual(expectedEmptyResult);
+            expect(flattenBOM([], headers, 'P1', 'D')).toEqual(expectedEmptyResult);
+            expect(flattenBOM([{D:'R1'}], null, 'P1', 'D')).toEqual(expectedEmptyResult); 
+            expect(flattenBOM([{D:'R1'}], headers, null, 'D')).toEqual(expectedEmptyResult); 
+            expect(flattenBOM([{D:'R1'}], headers, 'P1', null)).toEqual(expectedEmptyResult); 
         });
     });
 
@@ -216,6 +231,4 @@ describe('BOM Parser Utilities', () => { // Top-level describe
             expect(result.rawRows[1]).toEqual({ H1: 'V4', H2: '' });
         });
     });
-
-}); // End Top-level describe
-
+});
