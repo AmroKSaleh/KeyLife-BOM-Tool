@@ -17,12 +17,25 @@ export function findDesignatorColumn(headers, config) {
 export function normalizeComponent(component, config, designatorColumn) {
     if (!component || !config) return component;
     const normalized = { ...component };
+
+    // Map designator first if needed
     if (designatorColumn && designatorColumn !== 'Designator' && component[designatorColumn]) {
         normalized.Designator = component[designatorColumn];
     }
+
+    // Apply standard field mappings
     Object.entries(config.fieldMappings || {}).forEach(([from, to]) => {
-        if (component[from] && !component[to]) normalized[to] = component[from];
+        // Only map if the 'from' field exists and the 'to' field doesn't already exist OR if mapping Qty->Quantity
+        if (component[from] !== undefined && (component[to] === undefined || (from.toLowerCase() === 'qty' && to === 'Quantity'))) {
+            normalized[to] = component[from];
+        }
     });
+
+    // Explicitly remove 'Qty' if 'Quantity' now exists due to mapping
+    if (normalized.Quantity !== undefined && normalized.Qty !== undefined) {
+        delete normalized.Qty;
+    }
+
     return normalized;
 }
 
@@ -31,14 +44,40 @@ export function normalizeComponent(component, config, designatorColumn) {
  * @description Processes raw rows, either flattening designators or flagging ambiguous rows.
  * @returns {{flattened: Array<object>, ambiguous: Array<object>}}
  */
-export function flattenBOM(rawRows, rawHeaders, projectName, designatorColumn) {
-    if (!rawRows || !rawHeaders || !projectName || !designatorColumn) return { flattened: [], ambiguous: [] };
+export function flattenBOM(rawRows, rawHeaders, projectName, designatorColumn, config) {
+    if (!rawRows || !rawHeaders || !projectName || !designatorColumn || !config) return { flattened: [], ambiguous: [] };
     const flattenedComponents = [];
     const ambiguousComponents = [];
     let rowCounter = 0;
     
-    // Find the primary QTY column
-    const qtyColumn = rawHeaders.find(h => /^(qty|quantity|qnt|count|amount)$/i.test(h?.trim() || ''));
+    // 1. Get all alternate names for "Quantity" from config
+    const quantityAltNames = Object.entries(config.fieldMappings || {})
+        .filter(([_, to]) => to === 'Quantity')
+        .map(([from, _]) => from.toLowerCase());
+
+    // 2. Create a unique, prioritized list of names to check (all lowercase)
+    const qtyColumnNames = [
+        'quantity', // Standard name first
+        ...quantityAltNames,
+        // Add hardcoded fallbacks
+        'qty',
+        'qnt',
+        'count',
+        'amount'
+    ];
+    const uniqueQtyNames = [...new Set(qtyColumnNames)];
+
+    // 3. Find the first matching header in rawHeaders (case-insensitive)
+    let qtyColumn = null;
+    for (const name of uniqueQtyNames) {
+        const matchingHeader = rawHeaders.find(h => h.toLowerCase() === name);
+        if (matchingHeader) {
+            qtyColumn = matchingHeader; // Use the original cased header name
+            break;
+        }
+    }
+    // --- END NEW Logic ---
+
     const hasQuantityColumn = !!qtyColumn;
 
     for (const rawRow of rawRows) {
@@ -241,7 +280,7 @@ export async function processBOMFile(file, projectName, config) {
     }
 
     // Call updated flattenBOM
-    const { flattened, ambiguous } = flattenBOM(rawRows, rawHeaders, projectName, designatorColumn);
+    const { flattened, ambiguous } = flattenBOM(rawRows, rawHeaders, projectName, designatorColumn, config);
 
     // Normalize ONLY the non-ambiguous, already flattened components
     const normalizedComponents = flattened.map(comp => normalizeComponent(comp, config, designatorColumn));
