@@ -13,31 +13,58 @@ import {
 export const useLPN = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
-    const { getNextSequence, updateExistingComponent } = useFirestore();
+    
+    // Update destructured imports from useFirestore
+    const { getNextSequence, updateExistingComponent, findLPNByMPN } = useFirestore(); // findLPNByMPN is new
 
     const assignLPN = useCallback(async (component) => {
-        // ... (assignLPN implementation unchanged)
+        setIsGenerating(true);
+        setError('');
+
         try {
-            if (!validateComponentForLPN(component)) throw new Error('MPN required');
-            if (hasLPN(component)) throw new Error('LPN exists');
+            if (!validateComponentForLPN(component)) throw new Error('MPN required for LPN assignment');
+            if (hasLPN(component)) throw new Error('Component already has an LPN');
+            
+            // Extract the canonical MPN
             const mpn = extractMPN(component);
             if (!mpn) throw new Error('Could not extract MPN');
 
-            const hash = generateMPNHash(mpn);
-            const sequenceResult = await getNextSequence();
-            if (!sequenceResult?.success) throw new Error(sequenceResult?.error || 'Seq fail');
-            const lpn = assembleLPN(sequenceResult.sequence, hash);
+            // 1. CHECK FOR EXISTING LPN IN DB FOR THIS MPN (Consistency Check)
+            const existingLPNResult = await findLPNByMPN(mpn);
+            let finalLPN = null;
+            
+            if (existingLPNResult.success && existingLPNResult.lpn) {
+                // LPN already exists for this component type. Reuse it.
+                finalLPN = existingLPNResult.lpn;
+            } else {
+                // 2. GENERATE NEW LPN (if no existing LPN found)
+                const hash = generateMPNHash(mpn);
+                const sequenceResult = await getNextSequence();
+                if (!sequenceResult?.success) throw new Error(sequenceResult?.error || 'Failed to get LPN sequence');
+                
+                finalLPN = assembleLPN(sequenceResult.sequence, hash);
+            }
 
-            const updateResult = await updateExistingComponent(component.id, { Local_Part_Number: lpn });
-            if (!updateResult?.success) throw new Error(updateResult?.error || 'Update fail');
+            // 3. ASSIGN LPN to the current component using its document ID
+            // NOTE: The component passed here must have its Firestore ID set (handled in App.jsx)
+            const updateResult = await updateExistingComponent(component.id, { 
+                Local_Part_Number: finalLPN,
+                // Ensure the canonical MPN field is set on the component before update, 
+                // as this is the field used for the DB query in findLPNForMPN.
+                'Mfr. Part #': mpn 
+            });
 
-            return { success: true, lpn, sequence: sequenceResult.sequence, hash };
+            if (!updateResult?.success) throw new Error(updateResult?.error || 'Failed to update component with LPN');
+
+            return { success: true, lpn: finalLPN };
         } catch (err) {
             const errorMsg = err.message || 'Assign LPN failed';
             setError(errorMsg);
             return { success: false, error: errorMsg };
+        } finally {
+            setIsGenerating(false);
         }
-    }, [getNextSequence, updateExistingComponent, setError]);
+    }, [getNextSequence, updateExistingComponent, findLPNByMPN]);
 
     const assignLPNBatch = useCallback(async (components) => {
         if (!components?.length) {
@@ -49,9 +76,9 @@ export const useLPN = () => {
         const results = { processed: [], failed: [], total: components.length };
         let overallSuccess = true;
 
-        try { // Added try block for the loop
+        try { 
             for (const component of components) {
-                const result = await assignLPN(component); // assignLPN handles its own errors
+                const result = await assignLPN(component); 
                 if (result.success) {
                     results.processed.push({ componentId: component.id, lpn: result.lpn });
                 } else {
@@ -59,13 +86,11 @@ export const useLPN = () => {
                     overallSuccess = false;
                 }
             }
-        } catch (batchError) { // Catch unexpected errors during the batch loop itself
+        } catch (batchError) { 
             console.error("Unexpected error during assignLPNBatch loop:", batchError);
             setError(`Batch processing failed unexpectedly: ${batchError.message}`);
             overallSuccess = false;
-            // Optionally add a general failure note if specific component errors weren't caught
-            // results.failed.push({ componentId: 'BATCH_ERROR', error: batchError.message });
-        } finally { // Ensure state is reset even if an error occurs
+        } finally { 
             setIsGenerating(false);
         }
 
@@ -96,4 +121,3 @@ export const useLPN = () => {
         validateComponentForLPN, isFieldLocked
     };
 };
-

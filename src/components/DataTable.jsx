@@ -7,17 +7,17 @@ import { useMemo, useState } from 'react';
 import { useLPN } from '../hooks/useLPN.js';
 import LPNButton from './LPNButton.jsx';
 
-export default function DataTable({ 
-    components, 
-    headers, 
-    selectedProject, 
-    setSelectedProject, 
-    searchTerm, 
-    setSearchTerm, 
+export default function DataTable({
+    components,
+    headers,
+    selectedProject,
+    setSelectedProject,
+    searchTerm,
+    setSearchTerm,
     findAlternatives,
     editComponent,
     deleteComponent,
-    clearLibrary, 
+    clearLibrary,
     saveLibraryToFile,
     importLibrary,
     selectedTypes,
@@ -34,7 +34,7 @@ export default function DataTable({
 
     const { canEditField, isFieldLocked } = useLPN();
 
-    const projectNames = useMemo(() => 
+    const projectNames = useMemo(() =>
         [...new Set(components.map(c => c.ProjectName))].sort(),
         [components]
     );
@@ -71,11 +71,12 @@ export default function DataTable({
             const lowercasedFilter = searchTerm.toLowerCase();
             filtered = filtered.filter(component => {
                 return Object.keys(component).some(key =>
+                    // Safely convert component[key] to string before searching
                     String(component[key]).toLowerCase().includes(lowercasedFilter)
                 );
             });
         }
-        
+
         return filtered;
     }, [components, searchTerm, selectedProject, selectedTypes, designatorConfig]);
 
@@ -117,6 +118,57 @@ export default function DataTable({
         return isFieldLocked(fieldName, component);
     };
 
+    // Helper function to safely render any value as a string
+    const safeRenderValue = (value, forInput = false) => {
+        if (value === null || value === undefined) return forInput ? '' : '-';
+
+        let finalValue = value;
+
+        if (typeof value === 'object') {
+            try {
+                // Special handling for common objects (e.g., from ExcelJS output)
+                if (value.hasOwnProperty('text') && typeof value.text === 'string') {
+                    finalValue = value.text;
+                } else if (value.hasOwnProperty('result')) {
+                    finalValue = value.result;
+                } else if (value.hasOwnProperty('Part #') && Object.keys(value).length === 1) {
+                    // Specific fix for {" Part #":"SMBJ30A"} - extract the value
+                    finalValue = value['Part #'];
+                }
+                 else {
+                    // Stringify all other arbitrary objects to prevent React crash
+                    finalValue = JSON.stringify(value);
+                }
+            } catch (e) {
+                // Catch circular references or other stringify errors
+                finalValue = '[Object Error]';
+            }
+        }
+
+        const stringVal = String(finalValue || '').trim();
+
+        // For display (not input), show '-' if the stringified value is empty or `{}`
+        if (!forInput && (stringVal === '' || stringVal === '{}' || stringVal === 'null')) {
+             return '-';
+        }
+
+        // For input fields, return empty string if the value represents empty/null
+        if (forInput && (stringVal === '-' || stringVal === '{}' || stringVal === 'null')) {
+             return '';
+        }
+
+        return stringVal;
+    };
+
+    // Filter headers to exclude the dedicated LPN column and potentially problematic 'MFR'
+    const displayHeaders = useMemo(() => {
+        return headers.filter(header =>
+            header !== 'Local_Part_Number' && // Exclude LPN from standard columns
+            header !== 'MFR' // Exclude the potentially problematic 'MFR' column
+        );
+    }, [headers]);
+
+
     return (
         <div className="bg-gray-800 rounded-xl shadow-lg p-6 ring-1 ring-keylife-accent/20">
             {/* Header & Stats */}
@@ -146,10 +198,10 @@ export default function DataTable({
                                     <option key={name} value={name}>{name}</option>
                                 ))}
                             </select>
-                            <svg 
-                                className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
-                                fill="none" 
-                                stroke="currentColor" 
+                            <svg
+                                className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                                fill="none"
+                                stroke="currentColor"
                                 viewBox="0 0 24 24"
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -171,10 +223,10 @@ export default function DataTable({
                                     <option key={type} value={type}>{type}</option>
                                 ))}
                             </select>
-                            <svg 
-                                className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
-                                fill="none" 
-                                stroke="currentColor" 
+                            <svg
+                                className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                                fill="none"
+                                stroke="currentColor"
                                 viewBox="0 0 24 24"
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -190,10 +242,10 @@ export default function DataTable({
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-keylife-accent transition duration-200"
                             />
-                            <svg 
-                                className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" 
-                                fill="none" 
-                                stroke="currentColor" 
+                            <svg
+                                className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
                                 viewBox="0 0 24 24"
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -238,13 +290,14 @@ export default function DataTable({
                     </div>
                 )}
             </div>
-            
+
             {/* Component Table */}
             <div className="overflow-x-auto rounded-lg border border-gray-700">
                 <table className="w-full text-sm text-left text-gray-300">
                     <thead className="text-xs text-keylife-accent uppercase bg-gray-900">
                         <tr>
-                            {headers.map((header) => (
+                            {/* Use displayHeaders instead of headers */}
+                            {displayHeaders.map((header) => (
                                 <th key={header} scope="col" className="px-6 py-3 whitespace-nowrap">
                                     {header}
                                 </th>
@@ -259,20 +312,22 @@ export default function DataTable({
                     </thead>
                     <tbody>
                         {filteredComponents.map((component) => (
-                            <tr 
-                                key={component.id} 
+                            <tr
+                                key={component.id}
                                 className="bg-gray-800 border-b border-gray-700 hover:bg-gray-700/50 transition-colors"
                             >
-                                {headers.map((header) => {
+                                {/* Use displayHeaders instead of headers */}
+                                {displayHeaders.map((header) => {
                                     const isLocked = isFieldDisabled(header, component);
-                                    
+
                                     return (
                                         <td key={header} className="px-6 py-4 whitespace-nowrap">
                                             {editingId === component.id ? (
                                                 <div className="relative">
                                                     <input
                                                         type="text"
-                                                        value={editedData[header] || ''}
+                                                        // Ensure value is safe to use in input
+                                                        value={safeRenderValue(editedData[header], true)}
                                                         onChange={(e) => handleFieldChange(header, e.target.value)}
                                                         disabled={isLocked}
                                                         className={`w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-keylife-accent ${
@@ -287,8 +342,9 @@ export default function DataTable({
                                                     )}
                                                 </div>
                                             ) : (
+                                                // Ensure value is safe to render as a React child
                                                 <span className={isLocked ? 'flex items-center gap-2' : ''}>
-                                                    {component[header] || '-'}
+                                                    {safeRenderValue(component[header])}
                                                     {isLocked && (
                                                         <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" title="Locked field">
                                                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -299,10 +355,10 @@ export default function DataTable({
                                         </td>
                                     );
                                 })}
-                                
+
                                 {/* LPN Column */}
                                 <td className="px-6 py-4 text-center">
-                                    <LPNButton 
+                                    <LPNButton
                                         component={component}
                                         disabled={editingId === component.id}
                                     />
@@ -330,8 +386,8 @@ export default function DataTable({
                                         </div>
                                     ) : (
                                         <div className="flex gap-2 justify-center flex-wrap">
-                                            <button 
-                                                onClick={() => findAlternatives(component)} 
+                                            <button
+                                                onClick={() => findAlternatives(component)}
                                                 className="bg-keylife-accent hover:bg-keylife-accent/80 text-white font-medium py-1 px-2 rounded-lg text-xs transition duration-200 inline-flex items-center gap-1"
                                                 title="Find alternatives"
                                             >
@@ -370,8 +426,8 @@ export default function DataTable({
                                                         }
                                                     }}
                                                     className={`font-medium py-1 px-3 rounded-lg text-sm transition duration-200 inline-flex items-center gap-1 ${
-                                                        copiedId === component.id 
-                                                            ? 'bg-green-600 text-white' 
+                                                        copiedId === component.id
+                                                            ? 'bg-green-600 text-white'
                                                             : 'bg-gray-700 hover:bg-keylife-accent/80 text-gray-300 hover:text-white'
                                                     }`}
                                                     title="Copy Raw KiCad Symbol Data to Clipboard"
@@ -432,10 +488,10 @@ export default function DataTable({
                         </span>
                     </label>
                 </div>
-                
+
                 <div className="flex gap-3">
-                    <button 
-                        onClick={saveLibraryToFile} 
+                    <button
+                        onClick={saveLibraryToFile}
                         className="bg-keylife-accent hover:bg-keylife-accent/80 text-white font-medium py-2 px-4 rounded-lg transition duration-200 inline-flex items-center gap-2"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -443,8 +499,8 @@ export default function DataTable({
                         </svg>
                         Save Library
                     </button>
-                    <button 
-                        onClick={clearLibrary} 
+                    <button
+                        onClick={clearLibrary}
                         className="bg-red-700 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 inline-flex items-center gap-2"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -457,3 +513,4 @@ export default function DataTable({
         </div>
     );
 }
+
