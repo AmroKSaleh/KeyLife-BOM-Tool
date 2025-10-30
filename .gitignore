@@ -157,3 +157,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # === Optional: Keep Some Config Examples ===
 !.vscode/settings.example.json
 !.env.example
+*storybook.log
+storybook-static
