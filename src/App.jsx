@@ -6,18 +6,28 @@ import { useGeminiAI } from './hooks/useGeminiAI.js';
 import { useKiCadParser } from './hooks/useKiCadParser.js';
 import { useToastContext } from './context/ToastContext.jsx';
 import { extractMPN } from './utils/lpnUtils.js';
-import AuthModal from './components/AuthModal.jsx';
-import UserProfile from './components/UserProfile.jsx';
-import AiModal from './components/AiModal.jsx';
-import SetupSection from './components/SetupSection.jsx';
-import DataTable from './components/DataTable.jsx';
-import ProjectManager from './components/ProjectManager.jsx';
-import ConfigModal from './components/ConfigModal.jsx';
-import UnmatchedComponentsModal from './components/UnmatchedComponentsModal.jsx';
-import UploadStatsModal from './components/UploadStatsModal.jsx';
-import ConfirmModal from './components/ConfirmModal.jsx';
-import LoadingSpinner from './components/LoadingSpinner.jsx';
-import AmbiguousQtyModal from './components/AmbiguousQtyModal.jsx'; 
+
+// New Layout Components
+import AppHeader from './components/layout/AppHeader.jsx';
+import AppFooter from './components/layout/AppFooter.jsx';
+
+// New Page Components
+import BomTabPage from './components/pages/BomTabPage.jsx';
+import ProjectsTabPage from './components/pages/ProjectsTabPage.jsx';
+import UploadTabPage from './components/pages/UploadTabPage.jsx';
+
+// Existing Utility Modals
+import AuthModal from './components/modals/AuthModal.jsx';
+import AiModal from './components/modals/AiModal.jsx';
+import ConfigModal from './components/modals/ConfigModal.jsx';
+import UnmatchedComponentsModal from './components/modals/UnmatchedComponentsModal.jsx';
+import UploadStatsModal from './components/modals/UploadStatsModal.jsx';
+import ConfirmModal from './components/modals/ConfirmModal.jsx';
+import AmbiguousQtyModal from './components/modals/AmbiguousQtyModal.jsx';
+
+// Existing UI Components
+import LoadingSpinner from './components/ui/LoadingSpinner.jsx';
+import ToastNotification from './components/ui/ToastNotification.jsx';
 
 export default function App() {
     const toast = useToastContext();
@@ -120,10 +130,10 @@ export default function App() {
     } = useKiCadParser();
 
     // UI State
+    const [activeTab, setActiveTab] = useState('upload'); // Set default tab
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProject, setSelectedProject] = useState('');
     const [selectedTypes, setSelectedTypes] = useState([]);
-    const [isUnmatchedModalOpen, setIsUnmatchedModalOpen] = useState(false);
 
     // Confirm Modal State
     const [confirmModal, setConfirmModal] = useState({
@@ -497,62 +507,27 @@ export default function App() {
 
     return (
         <div className="text-gray-100 min-h-screen font-sans">
+            {/* 1. Header (Always Rendered for Auth/Config access) */}
+            <AppHeader
+                isAuthenticated={isAuthenticated}
+                onShowConfig={() => setIsConfigOpen(true)}
+                onShowAuth={() => setIsAuthModalOpen(true)}
+            />
+
             <div className="container mx-auto p-4 md:p-8 max-w-7xl">
-                {/* Header */}
-                <header className="text-center mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex-1"></div>
-                        
-                        <div className="flex-1 flex items-center justify-center gap-4">
-                            <img 
-                                src="/src/img/keylife-logo-white.png" 
-                                alt="KeyLife Electronics Logo" 
-                                className="h-16 md:h-20 object-contain"
-                                onError={(e) => e.target.style.display = 'none'}
-                            />
-                        </div>
-
-                        <div className="flex-1 flex justify-end gap-3">
-                            {isAuthenticated ? (
-                                <>
-                                    <UserProfile />
-                                    <button
-                                        onClick={() => setIsConfigOpen(true)}
-                                        className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2"
-                                        title="Configuration"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span className="hidden md:inline">Settings</span>
-                                    </button>
-                                </>
-                            ) : (
-                                <button
-                                    onClick={() => setIsAuthModalOpen(true)}
-                                    className="bg-keylife-accent hover:bg-keylife-accent/80 text-white px-6 py-2 rounded-lg transition-colors font-medium"
-                                >
-                                    Sign In
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    <h1 className="text-4xl md:text-5xl font-bold text-keylife-accent mb-2">
+                <main>
+                    <h1 className="text-4xl md:text-5xl font-bold text-keylife-accent mb-6 text-center">
                         BOM Consolidation Tool
                     </h1>
-                    <p className="text-lg text-gray-400">
-                        Upload, Search, and Manage Component Libraries with AI
-                    </p>
-                    <div className="mt-2 text-sm text-gray-500">
+                    <div className="mt-2 text-sm text-gray-500 text-center mb-8">
                         v0.2.0 Beta • KeyLife Electronics R&D
                     </div>
-                </header>
 
-                <main>
                     {isAuthenticated ? (
                         <>
+                            {/* TODO: Implement Tabbed Navigation here in the next step */}
+                            {/* For now, show the content needed for a single tab */}
+                            
                             <SetupSection 
                                 projectName={projectName}
                                 setProjectName={setProjectName}
@@ -649,59 +624,10 @@ export default function App() {
                         </div>
                     )}
                 </main>
-
-                <footer className="mt-12 text-center text-gray-500 text-sm border-t border-gray-800 pt-6">
-                    <p>© 2025 KeyLife Electronics - R&D Internal Tool</p>
-                    <p className="mt-1">Developed by Amro K. Saleh</p>
-                </footer>
             </div>
-            
-            {/* Modals */}
-            <AuthModal
-                isOpen={isAuthModalOpen}
-                onClose={() => setIsAuthModalOpen(false)}
-            />
 
-            <AiModal
-                isModalOpen={isModalOpen}
-                setIsModalOpen={setIsModalOpen}
-                modalContent={modalContent}
-                isLoadingAi={isLoadingAi}
-            />
-
-            <ConfigModal
-                isOpen={isConfigOpen}
-                onClose={() => setIsConfigOpen(false)}
-                onSave={handleConfigSave}
-                currentConfig={config}
-            />
-
-            <UnmatchedComponentsModal
-                isOpen={isUnmatchedModalOpen}
-                onClose={() => setIsUnmatchedModalOpen(false)}
-                unmatchedComponents={unmatchedComponents}
-                projectName={selectedProject || projectName}
-                syncParams={syncParams}
-            />
-
-            <UploadStatsModal
-                isOpen={!!uploadStats}
-                onClose={() => {
-                    setUploadStats(null);
-                    setPendingComponents(null);
-                }}
-                stats={uploadStats}
-                onResolveConflicts={handleResolveConflicts}
-            />
-
-            <ConfirmModal
-                isOpen={confirmModal.isOpen}
-                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                onConfirm={confirmModal.onConfirm}
-                title={confirmModal.title}
-                message={confirmModal.message}
-                type={confirmModal.type}
-            />
+            {/* Footer */}
+            <AppFooter />
         </div>
     );
 }
