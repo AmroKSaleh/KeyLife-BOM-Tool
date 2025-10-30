@@ -3,7 +3,7 @@
  * @description Container component for rendering multiple toast notifications
  */
 
-import ToastNotification from './ToastNotification.jsx';
+import ToastNotification from './ui/ToastNotification.jsx';
 
 export default function ToastContainer({ toasts, onClose }) {
     if (!toasts || toasts.length === 0) {

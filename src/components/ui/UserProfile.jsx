@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth.js';
+import { useAuth } from '../../hooks/useAuth.js';
 
 export default function UserProfile() {
     const { user, logout, isAuthenticated } = useAuth();
@@ -76,7 +76,7 @@ export default function UserProfile() {
                                 {user.email}
                             </p>
                             <p className="text-xs text-gray-500 mt-2">
-                                User ID: {user.uid.slice(0, 8)}...
+                                User ID: {user.uid}
                             </p>
                         </div>
 

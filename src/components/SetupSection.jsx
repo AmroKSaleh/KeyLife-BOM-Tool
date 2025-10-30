@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { processBOMFile } from '../utils/bomParser.js';
-import AmbiguousQtyModal from './AmbiguousQtyModal.jsx';
+import AmbiguousQtyModal from './modals/AmbiguousQtyModal.jsx';
 
 export default function SetupSection({ 
     projectName, 

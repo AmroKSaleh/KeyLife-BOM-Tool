@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth.js';
+import { useAuth } from '../../hooks/useAuth.js';
 
 export default function AuthModal({ isOpen, onClose }) {
     const [mode, setMode] = useState('login'); // 'login', 'register', 'reset'
