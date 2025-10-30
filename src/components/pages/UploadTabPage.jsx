@@ -11,17 +11,20 @@ export default function UploadTabPage({
     kicadSchematics, config 
 }) {
     return (
-        <SetupSection 
-            projectName={projectName}
-            setProjectName={setProjectName}
-            onBOMSubmit={onBOMSubmit}
-            onBOMFileResolve={onBOMFileResolve}
-            isProcessing={isProcessing}
-            onKiCadUpload={onKiCadUpload}
-            isParsingKiCad={isParsingKiCad}
-            kicadError={kicadError}
-            kicadSchematics={kicadSchematics}
-            config={config}
-        />
+        <div className="bg-gray-800 rounded-xl shadow-lg p-12">
+            <h2 className="text-xl font-semibold text-gray-300 mb-6">Upload BOM</h2>
+            <SetupSection 
+                projectName={projectName}
+                setProjectName={setProjectName}
+                onBOMSubmit={onBOMSubmit}
+                onBOMFileResolve={onBOMFileResolve}
+                isProcessing={isProcessing}
+                onKiCadUpload={onKiCadUpload}
+                isParsingKiCad={isParsingKiCad}
+                kicadError={kicadError}
+                kicadSchematics={kicadSchematics}
+                config={config}
+            />
+        </div>
     );
 }

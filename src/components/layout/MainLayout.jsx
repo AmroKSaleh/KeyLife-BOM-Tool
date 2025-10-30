@@ -1,4 +1,3 @@
-// src/components/layout/MainLayout.jsx
 import React from 'react';
 import AppHeader from './AppHeader.jsx';
 import AppFooter from './AppFooter.jsx';
@@ -8,7 +7,6 @@ import ConfigModal from '../modals/ConfigModal.jsx';
 import UnmatchedComponentsModal from '../modals/UnmatchedComponentsModal.jsx';
 import UploadStatsModal from '../modals/UploadStatsModal.jsx';
 import ConfirmModal from '../modals/ConfirmModal.jsx';
-import AmbiguousQtyModal from '../modals/AmbiguousQtyModal.jsx';
 import LoadingSpinner from '../ui/LoadingSpinner.jsx';
 
 export default function MainLayout({
@@ -18,19 +16,26 @@ export default function MainLayout({
     isConfigOpen, setIsConfigOpen,
     handleConfigSave, config,
 
+    // UI State & Tabs [NEW]
+    activeTab,
+    setActiveTab,
+
     // AI Modal props
     isAiModalOpen, setIsAiModalOpen, modalContent, isLoadingAi,
 
     // Upload/Conflict Modals
     uploadStats, setUploadStats, setPendingComponents, handleResolveConflicts,
     confirmModal, setConfirmModal,
-    ambiguousData, setAmbiguousData, handleAmbiguousResolution, projectName,
+    
+    // Ambiguous data is passed down but modal rendering is delegated to SetupSection
+    ambiguousData, 
+    projectName,
 
     // KiCad Modals
     isUnmatchedModalOpen, setIsUnmatchedModalOpen, unmatchedComponents, syncParams,
     
     // Main Content
-    children,
+    pageContent,
     
     // Loading State
     authLoading
@@ -43,12 +48,28 @@ export default function MainLayout({
             </div>
         );
     }
+   
+    // Set theme colors for the MD tabs (matching KeyLife theme)
+    const tabStyles = {
+        '--md-sys-color-primary': '#49a4ad',
+        '--md-sys-color-on-surface': 'white',
+        '--md-sys-color-surface': '#1f2937',
+        '--md-sys-color-on-surface-variant': 'rgba(255, 255, 255, 0.7)',
+        '--md-tab-container-color': '#1f2937', // Explicitly set background
+        '--md-tab-active-indicator-color': '#49a4ad' // Ensure indicator is visible
+    };
     
     // Helper to close upload conflict modals cleanly
     const closeUploadModals = () => {
         setUploadStats(null);
         setPendingComponents(null);
-        setAmbiguousData(null);
+    };
+
+    /**
+     * Handle tab change event from md-tabs component
+     */
+    const handleTabChange = (event) => {
+        setActiveTab(event.target.activeTab.id);
     };
 
     return (
@@ -60,16 +81,40 @@ export default function MainLayout({
             />
 
             <div className="container mx-auto p-4 md:p-8 max-w-7xl">
-                <main>
-                    <h1 className="text-4xl md:text-5xl font-bold text-keylife-accent mb-6 text-center">
-                        BOM Consolidation Tool
-                    </h1>
-                    <div className="mt-2 text-sm text-gray-500 text-center mb-8">
-                        v0.2.0 Beta • KeyLife Electronics R&D
-                    </div>
-                    
+                <main>           
                     {isAuthenticated ? (
-                        children
+                        <>
+                            {/* --- TABBED NAVIGATION (Material Web Tabs) --- */}
+                            {/* --- TABBED NAVIGATION (Material Web Tabs) --- */}
+                            <md-tabs 
+                                active-tab={activeTab}
+                                onchange={handleTabChange}
+                                key={activeTab} // Use React key
+                                className="mb-8"
+                                style={{ ...tabStyles, minHeight: '48px' }} 
+                            >
+                                <md-primary-tab 
+                                    key="upload" 
+                                    id="upload" 
+                                    label="Upload BOM" 
+                                    icon="upload_file"
+                                >Upload BOM</md-primary-tab>
+                                <md-primary-tab 
+                                    key="bom" 
+                                    id="bom" 
+                                    label="BOM Library" 
+                                    icon="inventory_2"
+                                >BOM Library</md-primary-tab>
+                                <md-primary-tab 
+                                    key="projects" 
+                                    id="projects" 
+                                    label="Projects Manager" 
+                                    icon="folder_managed"
+                                >Projects Manager</md-primary-tab>
+                            </md-tabs>
+                            {/* --- TAB CONTENT (children passed from App.jsx's renderTabContent) --- */}
+                            {pageContent}
+                        </>
                     ) : (
                         <div className="bg-gray-800 rounded-xl shadow-lg p-12 text-center ring-1 ring-keylife-accent/20">
                             <span className="material-symbols-outlined w-24 h-24 mx-auto text-keylife-accent mb-4 text-8xl">lock_open</span>
@@ -83,8 +128,9 @@ export default function MainLayout({
                     )}
                 </main>
 
-                <AppFooter />
             </div>
+            
+            <AppFooter />
             
             {/* Modals */}
             <AuthModal
@@ -121,16 +167,7 @@ export default function MainLayout({
                 stats={uploadStats}
                 onResolveConflicts={handleResolveConflicts}
             />
-
-            {/* Ambiguous Quantity Modal (Part of upload workflow) */}
-             <AmbiguousQtyModal
-                isOpen={!!ambiguousData}
-                onClose={closeUploadModals}
-                ambiguousComponents={ambiguousData?.ambiguous || []}
-                projectName={projectName}
-                onResolve={handleAmbiguousResolution} 
-            />
-
+            
             <ConfirmModal
                 isOpen={confirmModal.isOpen}
                 onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}

@@ -42,27 +42,30 @@ export default function BomTabPage({
                     <span>Processing components...</span>
                 </div>
             )}
-            <DataTable
-                components={components}
-                headers={headers}
-                selectedProject={selectedProject}
-                setSelectedProject={setSelectedProject}
-                selectedTypes={selectedTypes}
-                setSelectedTypes={setSelectedTypes}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                findAlternatives={findAlternatives}
-                editComponent={editComponent}
-                deleteComponent={deleteComponent}
-                clearLibrary={handleClearLibrary}
-                saveLibraryToFile={saveLibraryToFile}
-                importLibrary={importLibrary}
-                kicadSchematics={kicadSchematics}
-                matchWithKiCad={matchWithKiCad}
-                generateKiCadComponent={generateKiCadComponent}
-                designatorConfig={designatorConfig}
-                onCopyKiCadSymbol={onCopyKiCadSymbol}
-            />
+            <div className="bg-gray-800 rounded-xl shadow-lg p-12">
+                <h2 className="text-xl font-semibold text-gray-300 mb-6">Upload BOM</h2>
+                <DataTable
+                    components={components}
+                    headers={headers}
+                    selectedProject={selectedProject}
+                    setSelectedProject={setSelectedProject}
+                    selectedTypes={selectedTypes}
+                    setSelectedTypes={setSelectedTypes}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    findAlternatives={findAlternatives}
+                    editComponent={editComponent}
+                    deleteComponent={deleteComponent}
+                    clearLibrary={handleClearLibrary}
+                    saveLibraryToFile={saveLibraryToFile}
+                    importLibrary={importLibrary}
+                    kicadSchematics={kicadSchematics}
+                    matchWithKiCad={matchWithKiCad}
+                    generateKiCadComponent={generateKiCadComponent}
+                    designatorConfig={designatorConfig}
+                    onCopyKiCadSymbol={onCopyKiCadSymbol}
+                />
+            </div>
         </>
     );
 }
