@@ -181,7 +181,8 @@ export const useKiCadParser = () => {
                     uploadDate: Date.now(),
                     components: components.length,
                     metadata: metadata,
-                    rawSymbolMap: rawSymbolMap, // <-- RAW DATA SAVED HERE
+                    rawSymbolMap: rawSymbolMap,
+                    parsedComponents: componentsWithProject,
                 }
             }));
             

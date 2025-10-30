@@ -8,6 +8,7 @@ import { useToastContext } from './context/ToastContext.jsx';
 import { extractMPN } from './utils/lpnUtils.js';
 
 // New Layout Components
+import MainLayout from './components/layout/MainLayout.jsx';
 import AppHeader from './components/layout/AppHeader.jsx';
 import AppFooter from './components/layout/AppFooter.jsx';
 
@@ -144,10 +145,14 @@ export default function App() {
         type: 'danger'
     });
 
-    // Show auth modal if not authenticated
+    // Show auth modal if not authenticated/just logged out
     useEffect(() => {
+        // Only trigger if loading is done AND user is explicitly not authenticated
         if (!authLoading && !isAuthenticated) {
             setIsAuthModalOpen(true);
+        } else if (isAuthenticated) {
+            // Close modal if user successfully signs in
+            setIsAuthModalOpen(false);
         }
     }, [isAuthenticated, authLoading]);
 

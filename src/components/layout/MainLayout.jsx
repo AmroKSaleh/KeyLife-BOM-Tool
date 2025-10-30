@@ -8,8 +8,8 @@ import ConfigModal from '../modals/ConfigModal.jsx';
 import UnmatchedComponentsModal from '../modals/UnmatchedComponentsModal.jsx';
 import UploadStatsModal from '../modals/UploadStatsModal.jsx';
 import ConfirmModal from '../modals/ConfirmModal.jsx';
+import AmbiguousQtyModal from '../modals/AmbiguousQtyModal.jsx';
 import LoadingSpinner from '../ui/LoadingSpinner.jsx';
-import AmbiguousQtyModal from '../AmbiguousQtyModal.jsx';
 
 export default function MainLayout({
     // Auth & Config props
