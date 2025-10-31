@@ -7,19 +7,21 @@ export default function AppHeader({ isAuthenticated, onShowConfig, onShowAuth, t
         <header className="py-4 px-6 bg-gray-900 border-b border-gray-800">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
                 {/* Logo and Title */}
-                <a href='https://keylife.tech' target="_blank" className="flex items-center gap-6">
-                    <img 
-                        src="/src/img/keylife-logo-white.png" 
-                        alt="KeyLife Electronics Logo" 
-                        className="h-20 object-contain"
-                        onError={(e) => e.target.style.display = 'none'}
-                    />
+                <div className="flex items-center gap-6">
+                    <a href='https://keylife.tech' target="_blank">
+                        <img 
+                            src="/src/img/keylife-logo-white.png" 
+                            alt="KeyLife Electronics Logo" 
+                            className="h-20 object-contain"
+                            onError={(e) => e.target.style.display = 'none'}
+                        />
+                    </a>
                     <a href="/">
                         <h1 className="text-xl font-bold text-keylife-accent hidden sm:block">
                             BOM Consolidation Tool
                         </h1>
                     </a>
-                </a>
+                </div>
 
                 {/* User & Actions */}
                 <div className="flex items-center gap-3">
