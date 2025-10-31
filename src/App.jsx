@@ -46,6 +46,8 @@ export default function App() {
         clearAllComponents, saveSettings, loadSettings
     } = useFirestore();
 
+    const teamName = user?.teamName || import.meta.env.VITE_APP_TEAMNAME || user?.email?.split('@')[1]?.split('.')[0] + "Team";
+
     const { assignLPN } = useLPN();
 
     const [projectName, setProjectName] = useState('');
@@ -372,6 +374,9 @@ export default function App() {
             setIsConfigOpen={setIsConfigOpen}
             handleConfigSave={handleConfigSave}
             config={config}
+            teamName={teamName}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
             isAiModalOpen={isAiModalOpen}
             setIsAiModalOpen={setIsAiModalOpen}
             modalContent={modalContent}
