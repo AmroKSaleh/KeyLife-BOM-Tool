@@ -15,6 +15,7 @@ export default function MainLayout({
     isAuthModalOpen, setIsAuthModalOpen,
     isConfigOpen, setIsConfigOpen,
     handleConfigSave, config,
+    teamName,
 
     // UI State & Tabs [NEW]
     activeTab,
@@ -78,6 +79,7 @@ export default function MainLayout({
                 isAuthenticated={isAuthenticated}
                 onShowConfig={() => setIsConfigOpen(true)}
                 onShowAuth={() => setIsAuthModalOpen(true)}
+                teamName={teamName}
             />
 
             <div className="container mx-auto p-4 md:p-8 max-w-7xl">
