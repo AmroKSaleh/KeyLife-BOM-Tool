@@ -17,8 +17,8 @@ export default function AppFooter() {
                     >
                         GitHub Repository
                     </a>
-                    <span className="text-gray-600">|</span>
-                    <span className="text-gray-600">{/** get version from .env file */}Version: {import.meta.env.VITE_APP_VERSION || '0.2.0 beta'}</span>
+                    <span>|</span>
+                    <span>{/** get version from .env file */}Version: {import.meta.env.VITE_APP_VERSION || '0.2.0 beta'}</span>
                 </div>
             </div>
         </footer>
