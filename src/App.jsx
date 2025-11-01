@@ -8,7 +8,6 @@ import { useToastContext } from './context/ToastContext.jsx';
 import { extractMPN } from './utils/lpnUtils.js';
 
 import MainLayout from './components/layout/MainLayout.jsx';
-import TabNavigation from './components/layout/TabNavigation.jsx';
 import BomTabPage from './components/pages/BomTabPage.jsx';
 import ProjectsTabPage from './components/pages/ProjectsTabPage.jsx';
 import UploadTabPage from './components/pages/UploadTabPage.jsx';
@@ -365,6 +364,77 @@ export default function App() {
         setActiveTab('bom');
     };
 
+    // Define all tabs and their content here
+    const tabConfig = [
+        {
+            id: 'upload',
+            label: 'Upload BOM',
+            icon: 'upload_file',
+            component: (
+                <UploadTabPage
+                    projectName={projectName}
+                    setProjectName={setProjectName}
+                    onBOMSubmit={handleBOMSubmit}
+                    onBOMFileResolve={handleBOMFileResolution}
+                    isProcessing={isProcessing}
+                    onKiCadUpload={handleKiCadUpload}
+                    isParsingKiCad={isParsingKiCad}
+                    kicadError={kicadError}
+                    kicadSchematics={kicadSchematics}
+                    config={config}
+                />
+            )
+        },
+        {
+            id: 'bom',
+            label: 'BOM Library',
+            icon: 'inventory_2',
+            component: (
+                <BomTabPage
+                    components={components}
+                    headers={headers}
+                    firestoreLoading={firestoreLoading}
+                    isProcessing={isProcessing}
+                    selectedProject={selectedProject}
+                    setSelectedProject={setSelectedProject}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    findAlternatives={findAlternatives}
+                    editComponent={handleEditComponent}
+                    deleteComponent={handleDeleteComponent}
+                    clearLibrary={handleClearLibrary}
+                    saveLibraryToFile={saveLibraryToFile}
+                    importLibrary={importLibrary}
+                    kicadSchematics={kicadSchematics}
+                    matchWithKiCad={matchWithKiCad}
+                    generateKiCadComponent={generateKiCadComponent}
+                    designatorConfig={config.designatorMeanings}
+                    onCopyKiCadSymbol={copyKiCadSymbolToClipboard}
+                    selectedTypes={selectedTypes}
+                    setSelectedTypes={setSelectedTypes}
+                    handleDeleteProject={handleDeleteProject}
+                    handleClearLibrary={handleClearLibrary}
+                />
+            )
+        },
+        {
+            id: 'projects',
+            label: 'Projects Manager',
+            icon: 'folder_managed',
+            component: (
+                <ProjectsTabPage
+                    components={components}
+                    firestoreLoading={firestoreLoading}
+                    onDeleteProject={handleDeleteProject}
+                    onFilterProject={handleFilterProject}
+                />
+            )
+        }
+    ];
+
+    // Find the component to render based on the active tab
+    const activePageContent = tabConfig.find(tab => tab.id === activeTab)?.component || null;
+
     return (
         <MainLayout
             isAuthenticated={isAuthenticated}
@@ -375,8 +445,15 @@ export default function App() {
             handleConfigSave={handleConfigSave}
             config={config}
             teamName={teamName}
+            
+            // Pass the dynamic tab config to MainLayout
+            tabsConfig={tabConfig} 
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+
+            // Pass the dynamically selected page content
+            pageContent={activePageContent} 
+
             isAiModalOpen={isAiModalOpen}
             setIsAiModalOpen={setIsAiModalOpen}
             modalContent={modalContent}
@@ -397,65 +474,6 @@ export default function App() {
             syncParams={syncParams}
             authLoading={authLoading}
         >
-            {isAuthenticated && (
-                <>
-                    <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-                    
-                    <div className="mt-6">
-                        {activeTab === 'upload' && (
-                            <UploadTabPage
-                                projectName={projectName}
-                                setProjectName={setProjectName}
-                                onBOMSubmit={handleBOMSubmit}
-                                onBOMFileResolve={handleBOMFileResolution}
-                                isProcessing={isProcessing}
-                                onKiCadUpload={handleKiCadUpload}
-                                isParsingKiCad={isParsingKiCad}
-                                kicadError={kicadError}
-                                kicadSchematics={kicadSchematics}
-                                config={config}
-                            />
-                        )}
-                        
-                        {activeTab === 'projects' && (
-                            <ProjectsTabPage
-                                components={components}
-                                firestoreLoading={firestoreLoading}
-                                onDeleteProject={handleDeleteProject}
-                                onFilterProject={handleFilterProject}
-                            />
-                        )}
-
-                        {activeTab === 'bom' && (
-                            <BomTabPage
-                                components={components}
-                                headers={headers}
-                                firestoreLoading={firestoreLoading}
-                                isProcessing={isProcessing}
-                                selectedProject={selectedProject}
-                                setSelectedProject={setSelectedProject}
-                                searchTerm={searchTerm}
-                                setSearchTerm={setSearchTerm}
-                                findAlternatives={findAlternatives}
-                                editComponent={handleEditComponent}
-                                deleteComponent={handleDeleteComponent}
-                                clearLibrary={handleClearLibrary}
-                                saveLibraryToFile={saveLibraryToFile}
-                                importLibrary={importLibrary}
-                                kicadSchematics={kicadSchematics}
-                                matchWithKiCad={matchWithKiCad}
-                                generateKiCadComponent={generateKiCadComponent}
-                                designatorConfig={config.designatorMeanings}
-                                onCopyKiCadSymbol={copyKiCadSymbolToClipboard}
-                                selectedTypes={selectedTypes}
-                                setSelectedTypes={setSelectedTypes}
-                                handleDeleteProject={handleDeleteProject}
-                                handleClearLibrary={handleClearLibrary}
-                            />
-                        )}
-                    </div>
-                </>
-            )}
         </MainLayout>
     );
 }

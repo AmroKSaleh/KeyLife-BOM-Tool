@@ -8,6 +8,7 @@ import UnmatchedComponentsModal from '../modals/UnmatchedComponentsModal.jsx';
 import UploadStatsModal from '../modals/UploadStatsModal.jsx';
 import ConfirmModal from '../modals/ConfirmModal.jsx';
 import LoadingSpinner from '../ui/LoadingSpinner.jsx';
+import TabNavigation from './TabNavigation.jsx';
 
 export default function MainLayout({
     // Auth & Config props
@@ -17,7 +18,8 @@ export default function MainLayout({
     handleConfigSave, config,
     teamName,
 
-    // UI State & Tabs [NEW]
+    // UI State & Tabs [MODIFIED]
+    tabsConfig = [], // <-- Receives config from App.jsx
     activeTab,
     setActiveTab,
 
@@ -28,7 +30,7 @@ export default function MainLayout({
     uploadStats, setUploadStats, setPendingComponents, handleResolveConflicts,
     confirmModal, setConfirmModal,
     
-    // Ambiguous data is passed down but modal rendering is delegated to SetupSection
+    // Ambiguous data
     ambiguousData, 
     projectName,
 
@@ -36,7 +38,7 @@ export default function MainLayout({
     isUnmatchedModalOpen, setIsUnmatchedModalOpen, unmatchedComponents, syncParams,
     
     // Main Content
-    pageContent,
+    pageContent, // <-- Receives the active page component from App.jsx
     
     // Loading State
     authLoading
@@ -49,28 +51,11 @@ export default function MainLayout({
             </div>
         );
     }
-   
-    // Set theme colors for the MD tabs (matching KeyLife theme)
-    const tabStyles = {
-        '--md-sys-color-primary': '#49a4ad',
-        '--md-sys-color-on-surface': 'white',
-        '--md-sys-color-surface': '#1f2937',
-        '--md-sys-color-on-surface-variant': 'rgba(255, 255, 255, 0.7)',
-        '--md-tab-container-color': '#1f2937', // Explicitly set background
-        '--md-tab-active-indicator-color': '#49a4ad' // Ensure indicator is visible
-    };
     
     // Helper to close upload conflict modals cleanly
     const closeUploadModals = () => {
         setUploadStats(null);
         setPendingComponents(null);
-    };
-
-    /**
-     * Handle tab change event from md-tabs component
-     */
-    const handleTabChange = (event) => {
-        setActiveTab(event.target.activeTab.id);
     };
 
     return (
@@ -81,43 +66,23 @@ export default function MainLayout({
                 onShowAuth={() => setIsAuthModalOpen(true)}
                 teamName={teamName}
             />
-
-            <div className="container mx-auto p-4 md:p-8 max-w-7xl">
-                <main>           
-                    {isAuthenticated ? (
-                        <>
-                            {/* --- TABBED NAVIGATION (Material Web Tabs) --- */}
-                            {/* --- TABBED NAVIGATION (Material Web Tabs) --- */}
-                            <md-tabs 
-                                active-tab={activeTab}
-                                onchange={handleTabChange}
-                                key={activeTab} // Use React key
-                                className="mb-8"
-                                style={{ ...tabStyles, minHeight: '48px' }} 
-                            >
-                                <md-primary-tab 
-                                    key="upload" 
-                                    id="upload" 
-                                    label="Upload BOM" 
-                                    icon="upload_file"
-                                >Upload BOM</md-primary-tab>
-                                <md-primary-tab 
-                                    key="bom" 
-                                    id="bom" 
-                                    label="BOM Library" 
-                                    icon="inventory_2"
-                                >BOM Library</md-primary-tab>
-                                <md-primary-tab 
-                                    key="projects" 
-                                    id="projects" 
-                                    label="Projects Manager" 
-                                    icon="folder_managed"
-                                >Projects Manager</md-primary-tab>
-                            </md-tabs>
-                            {/* --- TAB CONTENT (children passed from App.jsx's renderTabContent) --- */}
+            <main>           
+                {isAuthenticated ? (
+                    <div>
+                        {/* --- RENDER THE REUSABLE COMPONENT --- */}
+                        <TabNavigation
+                            tabsConfig={tabsConfig}
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                        />
+                        
+                        <div className="container mx-auto p-4 md:p-8 max-w-7xl"> 
+                            {/* --- RENDER THE DYNAMIC PAGE CONTENT --- */}
                             {pageContent}
-                        </>
-                    ) : (
+                        </div>
+                    </div>
+                ) : (
+                    <div className="container mx-auto p-4 md:p-8 max-w-7xl">
                         <div className="bg-gray-800 rounded-xl shadow-lg p-12 text-center ring-1 ring-keylife-accent/20">
                             <span className="material-symbols-outlined w-24 h-24 mx-auto text-keylife-accent mb-4 text-8xl">lock_open</span>
                             <h3 className="text-xl font-semibold text-gray-300 mb-2">
@@ -127,10 +92,9 @@ export default function MainLayout({
                                 Please sign in to access the BOM Consolidation Tool
                             </p>
                         </div>
-                    )}
-                </main>
-
-            </div>
+                    </div>
+                )}
+            </main>
             
             <AppFooter />
             
