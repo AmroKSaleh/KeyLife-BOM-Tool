@@ -24,6 +24,7 @@ export default function TabNavigation({ tabsConfig = [], activeTab, setActiveTab
             active-tab={activeTab}
             onchange={handleTabChange}
             className=""
+            aria-label="main navigation"
             style={{ ...tabStyles }} 
         >
             {tabsConfig.map(tab => (
@@ -31,6 +32,7 @@ export default function TabNavigation({ tabsConfig = [], activeTab, setActiveTab
                     key={tab.id}
                     id={tab.id}
                     aria-label={tab.label}
+                    inline-icon
                 >
                     {/* Ensure material-symbols font is imported in main.jsx or index.html */}
                     <md-icon slot="icon">{tab.icon}</md-icon>
