@@ -257,7 +257,7 @@ export default function App() {
             setKicadError('Please enter a project name first');
             return;
         }
-        await parseKiCadSchematic(file, projectName);
+        await parseKiCadSchematic(file, projectName, components);
         if (components.length > 0) {
             const { matched, unmatched } = autoLinkWithBOM(components, projectName);
             if (unmatched.length > 0) {
